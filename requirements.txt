@@ -1,0 +1,2 @@
+pywin32==300
+robotframework==4.1.2

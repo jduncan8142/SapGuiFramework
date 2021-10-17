@@ -1,0 +1,27 @@
+SAP Virtual Keys (on Windows)
+| *VKey ID* | *Key combination*     | *VKey ID* | *Key combination*     | *VKey ID* | *Key combination*     |
+| *0*       | Enter                 | *26*      | Ctrl + F2             | *72*      | Ctrl + A              |
+| *1*       | F1                    | *27*      | Ctrl + F3             | *73*      | Ctrl + D              |
+| *2*       | F2                    | *28*      | Ctrl + F4             | *74*      | Ctrl + N              |
+| *3*       | F3                    | *29*      | Ctrl + F5             | *75*      | Ctrl + O              |
+| *4*       | F4                    | *30*      | Ctrl + F6             | *76*      | Shift + Del           |
+| *5*       | F5                    | *31*      | Ctrl + F7             | *77*      | Ctrl + Ins            |
+| *6*       | F6                    | *32*      | Ctrl + F8             | *78*      | Shift + Ins           |
+| *7*       | F7                    | *33*      | Ctrl + F9             | *79*      | Alt + Backspace       |
+| *8*       | F8                    | *34*      | Ctrl + F10            | *80*      | Ctrl + Page Up        |
+| *9*       | F9                    | *35*      | Ctrl + F11            | *81*      | Page Up               |
+| *10*      | F10                   | *36*      | Ctrl + F12            | *82*      | Page Down             |
+| *11*      | F11 or Ctrl + S       | *37*      | Ctrl + Shift + F1     | *83*      | Ctrl + Page Down      |
+| *12*      | F12 or ESC            | *38*      | Ctrl + Shift + F2     | *84*      | Ctrl + G              |
+| *14*      | Shift + F2            | *39*      | Ctrl + Shift + F3     | *85*      | Ctrl + R              |
+| *15*      | Shift + F3            | *40*      | Ctrl + Shift + F4     | *86*      | Ctrl + P              |
+| *16*      | Shift + F4            | *41*      | Ctrl + Shift + F5     | *87*      | Ctrl + B              |
+| *17*      | Shift + F5            | *42*      | Ctrl + Shift + F6     | *88*      | Ctrl + K              |
+| *18*      | Shift + F6            | *43*      | Ctrl + Shift + F7     | *89*      | Ctrl + T              |
+| *19*      | Shift + F7            | *44*      | Ctrl + Shift + F8     | *90*      | Ctrl + Y              |
+| *20*      | Shift + F8            | *45*      | Ctrl + Shift + F9     | *91*      | Ctrl + X              |
+| *21*      | Shift + F9            | *46*      | Ctrl + Shift + F10    | *92*      | Ctrl + C              |
+| *22*      | Ctrl + Shift + 0      | *47*      | Ctrl + Shift + F11    | *93*      | Ctrl + V              |
+| *23*      | Shift + F11           | *48*      | Ctrl + Shift + F12    | *94*      | Shift + F10           |
+| *24*      | Shift + F12           | *70*      | Ctrl + E              | *97*      | Ctrl + #              |
+| *25*      | Ctrl + F1             | *71*      | Ctrl + F              |           |                       |
