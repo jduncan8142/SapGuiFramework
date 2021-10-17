@@ -1,1 +1,1 @@
-from .SapGuiRobot import SapGuiRobot
+from .SapGuiRobot import *

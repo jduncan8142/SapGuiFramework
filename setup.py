@@ -7,7 +7,7 @@ with open('README.md') as f:
 
 setup(
     name="sap_gui_robot_framework",
-    version="0.0.3",
+    version="0.0.4",
     author="Jason Duncan",
     author_email="jason.matthew.duncan@gmail.com",
     description="A Robocorp Robot Framework Library for controlling the SAP GUI desktop client",
