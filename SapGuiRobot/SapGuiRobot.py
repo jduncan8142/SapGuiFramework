@@ -29,7 +29,7 @@ class SapGuiRobot:
      for interaction with the desktop client application.
     """
 
-    __version__ = '0.0.1'
+    __version__ = '0.0.3'
     ROBOT_LIBRARY_SCOPE = 'GLOBAL'
 
     def __init__(
