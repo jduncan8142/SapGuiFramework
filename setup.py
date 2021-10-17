@@ -7,7 +7,7 @@ with open('README.md') as f:
 
 setup(
     name="sap_gui_robot_framework",
-    version="0.0.1",
+    version="0.0.3",
     author="Jason Duncan",
     author_email="jason.matthew.duncan@gmail.com",
     description="A Robocorp Robot Framework Library for controlling the SAP GUI desktop client",
@@ -26,5 +26,5 @@ setup(
     ),
     package_dir={"": "SapGuiRobot"},
     python_requires=">=3.10",
-    install_requires=["pywin32==300", "robotframework==4.1.2"]
+    install_requires=["pywin32>=300", "robotframework>=4.1.2"]
 )
