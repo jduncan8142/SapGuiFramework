@@ -62,14 +62,14 @@ class Timer:
         return time.time() - self.start_time
 
 
-class SapGuiRobot:
+class Gui:
     """
      A Robocorp Robot Framework library for controlling the SAP GUI Desktop and focused 
      on testing business processes. The library uses the native SAP GUI scripting engine 
      for interaction with the desktop client application.
     """
 
-    __version__ = '0.0.4'
+    __version__ = '0.0.6'
     ROBOT_LIBRARY_SCOPE = 'GLOBAL'
 
     def __init__(
@@ -79,17 +79,7 @@ class SapGuiRobot:
         explicit_wait: Optional[float] = 0.0, 
         connection_number: Optional[int] = 0, 
         session_number: Optional[int] = 0, 
-        connection_name: Optional[str] = None, 
-        log_level: Optional[int] = 1) -> None:
-        self.log_level: int = 1
-        try:
-            self.log_level = int(log_level)
-        except Exception as err:
-            if type(log_level) is not int:
-                raise ValueError("log_level must be an int between 0 and 9")
-            else:
-                raise Exception(f"Unknown error while setting log_level -> {err}")
-
+        connection_name: Optional[str] = None) -> None:
         self.subrc: int = 0
         self.__explicit_wait: float = explicit_wait
         self.__connection_number: int = connection_number
