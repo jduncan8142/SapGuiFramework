@@ -143,7 +143,7 @@ class Gui:
 
     def is_element(self, element: str) -> bool:
         try:
-            self.session.findById(id)
+            self.session.findById(element)
             return True
         except:
             return False
