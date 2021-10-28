@@ -443,7 +443,7 @@ class Gui:
         return ''.join(random.choice(chars) for _ in range(size))
 
     def input_random_value(self, id: str, text: str, prefix: bool = False, suffix: bool = False, date_time: bool = False, random: bool = False) -> str:
-        dt: str = datetime.datetime.now().strftime("%Y%M%d%H%m%s") if date_time else ""
+        dt: str = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f") if date_time else ""
         rs: str = self.string_generator() if random else ""
         tmp: str = text
         if prefix:
