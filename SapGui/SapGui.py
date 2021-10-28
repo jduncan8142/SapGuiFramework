@@ -69,7 +69,7 @@ class Gui:
      for interaction with the desktop client application.
     """
 
-    __version__ = '0.0.6'
+    __version__ = '0.0.7'
     ROBOT_LIBRARY_SCOPE = 'GLOBAL'
 
     def __init__(
@@ -81,7 +81,6 @@ class Gui:
         session_number: Optional[int] = 0, 
         connection_name: Optional[str] = None) -> None:
         self.subrc: int = 0
-        self.__explicit_wait: float = explicit_wait
         self.__connection_number: int = connection_number
         self.__session_number: int = session_number
         self.connection_name: str = connection_name if connection_name is not None else ""
@@ -106,22 +105,6 @@ class Gui:
         self.session_info: win32com.client.CDispatch = None
 
         self.text_elements = ("GuiTextField", "GuiCTextField", "GuiPasswordField", "GuiLabel", "GuiTitlebar", "GuiStatusbar", "GuiButton", "GuiTab", "GuiShell", "GuiStatusPane")
-
-    @property
-    def explicit_wait(self) -> float:
-        return self.__explicit_wait
-
-    @explicit_wait.setter
-    def explicit_wait(self, value: float = 0.0) -> None:
-        try:
-            self.explicit_wait = float(value)
-            logger.debug(f"explicit_wait time set to: {value}")
-        except TypeError:
-            self.explicit_wait = float(0.0)
-            logger.debug(f"Unable to set explicit_wait time with your given value. {value} cannot be converted to a float.")
-        except Exception as err:
-            self.explicit_wait = float(0.0)
-            logger.debug(f"Unable to set explicit_wait time -> {err}")
     
     @property
     def connection_number(self) -> int:
