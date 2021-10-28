@@ -295,7 +295,7 @@ class Gui:
             raise ValueError(f"Error sending command {command} -> {err}")
 
     def click_element(self, id: str = None) -> None:
-        if element_type := self.get_element_type(id) in ("GuiTab", "GuiMenu"):
+        if (element_type := self.get_element_type(id)) in ("GuiTab", "GuiMenu"):
             self.session.findById(id).select()
         elif element_type == "GuiButton":
             self.session.findById(id).press()
@@ -316,7 +316,7 @@ class Gui:
         self.wait()
 
     def doubleclick(self, id: str, item_id: str, column_id: str) -> None:
-        if element_type := self.get_element_type(id) == "GuiShell":
+        if (element_type := self.get_element_type(id)) == "GuiShell":
             self.session.findById(id).doubleClickItem(item_id, column_id)
         else:
             self.take_screenshot(screenshot_name="doubleclick_element_error.jpg")
@@ -333,7 +333,7 @@ class Gui:
             actual_value = self.get_value(id=id)
             self.session.findById(id).setfocus()
             self.wait()
-        if element_type := self.get_element_type(id) in self.text_elements:
+        if (element_type := self.get_element_type(id)) in self.text_elements:
             if expected_value != actual_value:
                 message = message if message is not None else f"Element value of {id} should be {expected_value}, but was {actual_value}"
                 self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
@@ -356,7 +356,7 @@ class Gui:
             actual_value = self.get_value(id=id)
             self.session.findById(id).setfocus()
             self.wait()
-        if element_type := self.get_element_type(id) in self.text_elements:
+        if (element_type := self.get_element_type(id)) in self.text_elements:
             if expected_value != actual_value:
                 message = message if message is not None else f"Element value of {id} does not contain {expected_value} but was {actual_value}"
                 self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
@@ -374,7 +374,7 @@ class Gui:
                 raise ValueError(f"Cannot find cell value for table: {table_id}, row: {row_num}, and column: {col_id} -> {err}")
 
     def set_combobox(self, id: str, key: str) -> None:
-        if element_type := self.get_element_type(id) == "GuiComboBox":
+        if (element_type := self.get_element_type(id)) == "GuiComboBox":
             self.session.findById(id).key = key
             logger.info(f"ComboBox value {key} selected from {id}")
             self.wait()
@@ -416,7 +416,7 @@ class Gui:
 
     def get_value(self, id: str) -> str | bool:
         try:
-            if element_type := self.get_element_type(id) in self.text_elements:
+            if (element_type := self.get_element_type(id)) in self.text_elements:
                 return self.session.findById(id).text
             elif element_type in ("GuiCheckBox", "GuiRadioButton"):
                 return self.session.findById(id).selected
@@ -483,7 +483,7 @@ class Gui:
         return self.session.findById(id).horizontalScrollbar.position if self.is_element(id) else None
 
     def select_checkbox(self, id: str) -> None:
-        if element_type := self.get_element_type(id) == "GuiCheckBox":
+        if (element_type := self.get_element_type(id)) == "GuiCheckBox":
             self.session.findById(id).selected = True
             self.wait()
         else:
@@ -491,7 +491,7 @@ class Gui:
             raise ValueError(f"Cannot use keyword 'select checkbox' for element type {element_type}")
 
     def unselect_checkbox(self, id: str) -> None:
-        if element_type := self.get_element_type(id) == "GuiCheckBox":
+        if (element_type := self.get_element_type(id)) == "GuiCheckBox":
             self.session.findById(id).selected = False
             self.wait()
         else:
@@ -558,7 +558,7 @@ class Gui:
             self.wait()
 
     def select_from_list_by_label(self, id: str, value: str) -> None:
-        if element_type := self.get_element_type(id) == "GuiComboBox":
+        if (element_type := self.get_element_type(id)) == "GuiComboBox":
             self.session.findById(id).key = value
             self.wait()
         else:
@@ -582,7 +582,7 @@ class Gui:
             self.wait()
 
     def select_radio_button(self, id: str) -> None:
-        if element_type := self.get_element_type(id) == "GuiRadioButton":
+        if (element_type := self.get_element_type(id)) == "GuiRadioButton":
             self.session.findById(id).selected = True
         else:
             self.take_screenshot(screenshot_name="select_radio_button_error.jpg")
@@ -599,7 +599,7 @@ class Gui:
             self.wait()
 
     def select_table_row(self, table_id: str, row_num: int):
-        if element_type := self.get_element_type(table_id) == "GuiTableControl":
+        if (element_type := self.get_element_type(table_id)) == "GuiTableControl":
             id = self.session.findById(table_id).getAbsoluteRow(row_num)
             id.selected = -1
         else:
