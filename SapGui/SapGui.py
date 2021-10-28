@@ -83,6 +83,7 @@ class Gui:
         self.subrc: int = 0
         self.__connection_number: int = connection_number
         self.__session_number: int = session_number
+        self.explicit_wait = explicit_wait
         self.connection_name: str = connection_name if connection_name is not None else ""
         self.sap_gui: win32com.client.CDispatch = None
         self.sap_app: win32com.client.CDispatch = None
