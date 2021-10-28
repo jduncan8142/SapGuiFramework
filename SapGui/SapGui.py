@@ -453,7 +453,7 @@ class Gui:
         self.input_text(id=id, text=tmp)
         return tmp
     
-    def input_current_date(self, id: str, format: Optional[str] = "%M/%d/%Y") -> None:
+    def input_current_date(self, id: str, format: Optional[str] = "%m/%d/%Y") -> None:
         self.input_text(id=id, text=datetime.datetime.now().strftime(format))
 
     def maximize_window(self, window: Optional[int] = None) -> None:
