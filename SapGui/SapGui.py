@@ -8,7 +8,7 @@ import time
 import string
 import random
 from robot.api import logger
-from typing import Optional
+from typing import Optional, Any
 
 
 class Screenshot:
@@ -385,9 +385,9 @@ class Gui:
     def get_element_location(self, id: str) -> tuple[int]:
         return (self.session.findById(id).screenLeft, self.session.findById(id).screenTop) if self.is_element(element=id) else (0, 0)
 
-    def get_element_type(self, id) -> object | None:
+    def get_element_type(self, id) -> Any:
         try:
-            return self.session.findById(id).type if self.is_element(element=id) else None
+            return self.session.findById(id).type
         except Exception as err:
             self.take_screenshot(screenshot_name="get_element_type_error.jpg")
             raise ValueError(f"Cannot find element type for id: {id} -> {err}")
@@ -430,7 +430,7 @@ class Gui:
             raise ValueError(f"Cannot get value for element type {element_type} for id {id} -> {err}")
 
     def input_text(self, id: str, text: str) -> None:
-        if element_type := self.get_element_type(id) in self.text_elements:
+        if (element_type := self.get_element_type(id)) in self.text_elements:
             self.session.findById(id).text = text
             if element_type != "GuiPasswordField":
                 logger.info(f"Input {text} into text field {id}")
