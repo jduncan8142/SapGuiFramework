@@ -597,7 +597,7 @@ class Gui:
                 raise ValueError(f"Cannot find column ID: {column_id} for table {table_id}")
             self.wait()
 
-    def select_table_row(self, table_id: str, row_num: int):
+    def select_table_row(self, table_id: str, row_num: int) -> None:
         if (element_type := self.get_element_type(table_id)) == "GuiTableControl":
             id = self.session.findById(table_id).getAbsoluteRow(row_num)
             id.selected = -1
@@ -608,3 +608,36 @@ class Gui:
                 self.take_screenshot(screenshot_name="select_table_row_error.jpg")
                 raise ValueError(f"Cannot use keyword Select Table Row for element type {element_type} -> {err}")
         self.wait()
+
+
+class SalesOrder:
+    def __init__(self, sap: Gui) -> None:
+        self.sap: Gui = sap
+        self.new_sales_order: str = None
+        self.status_msg: str = None
+    
+    def create_new_sales_order(self, data: object, transaction: Optional[str] = "VA01") -> None:
+        self.sap.start_transaction(transaction=transaction)
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtVBAK-AUART", text=data.order_type)
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtVBAK-VKORG", text=data.sales_org)
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtVBAK-VTWEG", text=data.dist_ch)
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtVBAK-SPART", text=data.division)
+        self.sap.send_vkey(vkey="Enter")
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUAGV-KUNNR", text=data.sold_to)
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUWEV-KUNNR", text=data.ship_to)
+        po = self.sap.input_random_value(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=data.order_type, suffix=True, date_time=True)
+        self.sap.send_vkey(vkey="Enter")
+        for item in data.line_items:
+            self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/subSUBSCREEN_BUTTONS:SAPMV45A:4050/btnBT_POAN")
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtRV45A-MABNR[1,1]", text=item["material"])
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/txtRV45A-KWMENG[2,1]", text=item["target_quantity"])
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-VRKME[3,1]", text=item["uom"])
+            self.sap.send_vkey(vkey="Enter")
+            self.sap.wait_for_element(id="/app/con[0]/ses[0]/wnd[1]/tbar[0]/btn[0]")
+            self.sap.click_element(id="/app/con[0]/ses[0]/wnd[1]/tbar[0]/btn[0]")
+            self.sap.wait_for_element(id="/app/con[0]/ses[0]/wnd[0]/usr/btnBUT3")
+            self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/usr/btnBUT3")
+    
+    def create_sales_order_from_reference(self, data: object, transaction: Optional[str] = "VA01") -> None:
+        pass
+    
