@@ -633,10 +633,6 @@ class SalesOrder:
             self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/txtRV45A-KWMENG[2,1]", text=item["target_quantity"])
             self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-VRKME[3,1]", text=item["uom"])
             self.sap.send_vkey(vkey="Enter")
-            self.sap.wait_for_element(id="/app/con[0]/ses[0]/wnd[1]/tbar[0]/btn[0]")
-            self.sap.click_element(id="/app/con[0]/ses[0]/wnd[1]/tbar[0]/btn[0]")
-            self.sap.wait_for_element(id="/app/con[0]/ses[0]/wnd[0]/usr/btnBUT3")
-            self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/usr/btnBUT3")
     
     def create_sales_order_from_reference(self, data: object, transaction: Optional[str] = "VA01") -> None:
         pass
