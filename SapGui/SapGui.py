@@ -637,3 +637,45 @@ class SalesOrder:
     def create_sales_order_from_reference(self, data: object, transaction: Optional[str] = "VA01") -> None:
         pass
     
+    def update_shipping_condition(self) -> None:
+        # SAP.Click Element    /app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/btnBT_HEAD
+        # SAP.Click Element    /app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\02
+        # SAP.Set Combobox   /app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\02/ssubSUBSCREEN_BODY:SAPMV45A:4302/cmbVBAK-VSBED    ${shipping_condition}
+        # SAP.Send Vkey    Enter
+        # # Handle popup window for shipping condition redetermination
+        # SAP.Wait For Element    /app/con[0]/ses[0]/wnd[1]/usr/btnSPOP-VAROPTION1
+        # SAP.Click Element    /app/con[0]/ses[0]/wnd[1]/usr/btnSPOP-VAROPTION1
+        # SAP.Take Screenshot    shipping_conditions
+        pass
+    
+    def update_incoterms(self) -> None:
+        # SAP.Click Element    /app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\03
+        # SAP.Input Text    /app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\03/ssubSUBSCREEN_BODY:SAPMV45A:4303/ctxtVBKD-INCO2_L    ${inco2}
+        # SAP.Send Vkey    Enter
+        # SAP.Wait For Element    /app/con[0]/ses[0]/wnd[1]/tbar[0]/btn[0]
+        # SAP.Click Element    /app/con[0]/ses[0]/wnd[1]/tbar[0]/btn[0]
+        # SAP.Take Screenshot    incoterm
+        pass
+    
+    def update_partners(self) -> None:
+        # SAP.Click Element    /app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\09
+        # SAP.Insert In Table    /app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\09/ssubSUBSCREEN_BODY:SAPMV45A:4352/subSUBSCREEN_PARTNER_OVERVIEW:SAPLV09C:1000/tblSAPLV09CGV_TC_PARTNER_OVERVIEW    ZQ    0
+        # SAP.Insert In Table    /app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\09/ssubSUBSCREEN_BODY:SAPMV45A:4352/subSUBSCREEN_PARTNER_OVERVIEW:SAPLV09C:1000/tblSAPLV09CGV_TC_PARTNER_OVERVIEW    ${zq_partner}    6
+        # SAP.Send Vkey    Enter
+        # ${status_bar_msg}=    SAP.Get Value    /app/con[0]/ses[0]/wnd[0]/sbar/pane[0]
+        # SAP.Element Value Should Contain    /app/con[0]/ses[0]/wnd[0]/sbar/pane[0]    ${EMPTY}    ${status_bar_msg}    partner_${zq_partner}
+        # SAP.Take Screenshot    partner
+        pass
+
+    def update_outputs(self) -> None:
+        # SAP.Click Element    /app/con[0]/ses[0]/wnd[0]/mbar/menu[3]/menu[9]/menu[0]
+        # SAP.Insert In Table    /app/con[0]/ses[0]/wnd[0]/usr/tblSAPDV70ATC_NAST3    ${output_record}    1
+        # SAP.Send Vkey    Enter
+        # SAP.Click Element    /app/con[0]/ses[0]/wnd[0]/tbar[1]/btn[2]
+        # SAP.Input Text    /app/con[0]/ses[0]/wnd[0]/usr/ctxtNAST-LDEST    ${printer}
+        # SAP.Select Checkbox    /app/con[0]/ses[0]/wnd[0]/usr/chkNAST-DIMME
+        # SAP.Click Element    /app/con[0]/ses[0]/wnd[0]/tbar[0]/btn[3]
+        # SAP.Take Screenshot    output_record
+        # SAP.Click Element    /app/con[0]/ses[0]/wnd[0]/tbar[0]/btn[3]    
+        pass
+
