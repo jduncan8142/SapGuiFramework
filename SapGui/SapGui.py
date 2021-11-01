@@ -608,6 +608,13 @@ class Gui:
                 self.take_screenshot(screenshot_name="select_table_row_error.jpg")
                 raise ValueError(f"Cannot use keyword Select Table Row for element type {element_type} -> {err}")
         self.wait()
+    
+    def try_and_continue(self, func: str, *args, **kwargs) -> Any:
+        try:
+            if hasattr(self, name) and callable(func := getattr(self, name)):
+                return func(*args, **kwargs)
+        except:
+            return None
 
 
 class SalesOrder:
