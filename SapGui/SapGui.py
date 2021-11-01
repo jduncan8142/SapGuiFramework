@@ -1,6 +1,7 @@
 import win32com.client
 import time
 from mss import mss
+import re
 import os
 import sys
 import datetime
@@ -656,6 +657,9 @@ class SalesOrder:
         self.new_sales_order: str = None
         self.status_msg: str = None
         self.today = datetime.datetime.now().strftime(self.sap.date_format)
+    
+    def set_new_sales_order(self, msg: str) -> None:
+        self.new_sales_order = re.search("\d+", msg).group(0)
     
     def va01(self) -> None:
         self.sap.start_transaction(transaction="VA01")
