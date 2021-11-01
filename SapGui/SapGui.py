@@ -609,11 +609,11 @@ class Gui:
                 raise ValueError(f"Cannot use keyword Select Table Row for element type {element_type} -> {err}")
         self.wait()
     
-    def try_and_continue(self, func: str, *args, **kwargs) -> Any:
+    def try_and_continue(self, func_name: str, *args, **kwargs) -> Any:
         result = None
         self.wait(1.0)
         try:
-            if hasattr(self, name) and callable(func := getattr(self, name)):
+            if hasattr(self, func_name) and callable(func := getattr(self, func_name)):
                 result = func(*args, **kwargs)
                 if result:
                     print(f"RESULT -> {result}")
