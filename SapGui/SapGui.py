@@ -91,6 +91,7 @@ class Gui:
         self.connection: win32com.client.CDispatch = None
         self.session: win32com.client.CDispatch = None
         self.screenshot: Screenshot = Screenshot()
+        self.date_format = date_format
 
         if not os.path.exists(screenshot_dir):
             logger.debug(f"Screenshot directory {screenshot_dir} does not exist, creating it.")
