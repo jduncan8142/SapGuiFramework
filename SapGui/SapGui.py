@@ -79,7 +79,8 @@ class Gui:
         explicit_wait: Optional[float] = 0.0, 
         connection_number: Optional[int] = 0, 
         session_number: Optional[int] = 0, 
-        connection_name: Optional[str] = None) -> None:
+        connection_name: Optional[str] = None, 
+        date_format: Optional[str] = "%m/%d/%Y") -> None:
         self.subrc: int = 0
         self.__connection_number: int = connection_number
         self.__session_number: int = session_number
@@ -621,6 +622,28 @@ class Gui:
                     return None
         except Exception as err:
             return None
+    
+    def get_next_empty_table_row(self, table_id: str, column_index: Optional[int] = 0) -> None:
+        table = self.session.findById(table_id)
+        rows = table.rows
+        for i in range(rows.count):
+            row = rows.elementAt(i)
+            if row.elementAt(column_index).text == "":
+                return i
+    
+    def insert_in_table(self, table_id: str, value: str, column_index: int = 0, row_index: Optional[int] = None) -> None:
+        if not row_index:
+            row_index = self.get_next_empty_table_row(table_id=table_id, column_index=column_index)
+        table = self.session.findById(table_id)
+        cell = table.getCell(row_index, column_index)
+        (element_type := cell.type)
+        if (element_type := cell.type) == "GuiComboBox":
+            cell.key = value
+        elif element_type == "GuiCTextField":
+            cell.text = value
+        else:
+            raise ValueError(f"Element type {element_type} has no set key method.")
+        self.wait()
 
 
 class SalesOrder:
@@ -628,8 +651,77 @@ class SalesOrder:
         self.sap: Gui = sap
         self.new_sales_order: str = None
         self.status_msg: str = None
+        self.today = datetime.datetime.now().strftime(self.sap.date_format)
     
-    def create_new_sales_order(self, data: object, transaction: Optional[str] = "VA01") -> None:
+    def va01(self) -> None:
+        self.sap.start_transaction(transaction="VA01")
+    
+    def va01_initial_screen(self, order_type: str, sales_org: str, dist_ch: str, division: str, sales_office: Optional[str] = "", sales_group: Optional[str] = "", press_enter: Optional[bool] = True) -> None:
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtVBAK-AUART", text=order_type)
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtVBAK-VKORG", text=sales_org)
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtVBAK-VTWEG", text=dist_ch)
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtVBAK-SPART", text=division)
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtVBAK-VKBUR", text=sales_office)
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtVBAK-VKGRP", text=sales_group)
+        if press_enter:
+            self.sap.send_vkey(vkey="Enter")
+
+    def va01_header(self, sold_to: str, ship_to: str, cust_ref: str, cust_ref_date: Optional[str] = self.today, press_enter: Optional[bool] = True) -> None:
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUAGV-KUNNR", text=sold_to)
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUWEV-KUNNR", text=ship_to)
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=cust_ref)
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/ctxtVBKD-BSTDK", text=cust_ref_date)
+        if press_enter:
+            self.sap.send_vkey(vkey="Enter")
+    
+    def va01_sales_tab(self, req_del_date_format: Optional[str], req_del_date: Optional[str], delver_plant: Optional[str], complete_dlv: Optional[bool] = False, delivery_block: Optional[str], 
+        billing_block: Optional[str], pricing_date: Optional[str], pyt_terms: Optional[str], inco_version: Optional[str], incoterms: Optional[str], inco_location1: Optional[str],  
+        order_reason: Optional[str], press_enter: Optional[bool] = True) -> None:
+        self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01")
+        if req_del_date_format:
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/ctxtRV45A-KPRGBZ", text=req_del_date_format)
+        if req_del_date:
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/ctxtRV45A-KETDAT", text=req_del_date)
+        if delver_plant:
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/ctxtRV45A-DWERK", text=delver_plant)
+        if complete_dlv:
+            self.sap.select_checkbox(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/chkVBAK-AUTLF")
+        else:
+            self.sap.unselect_checkbox(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/chkVBAK-AUTLF")
+        if delivery_block:
+            self.sap.set_combobox(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/cmbVBAK-LIFSK", key=delivery_block)
+        if billing_block:
+            self.sap.set_combobox(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/cmbVBAK-FAKSK", key=billing_block)
+        if pyt_terms:
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/ctxtVBKD-ZTERM", text=pyt_terms)
+        if pricing_date:
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/ctxtVBKD-PRSDT", text=pricing_date)
+        if inco_version:
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/ctxtVBKD-INCOV", text=inco_version)
+        if incoterms:
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/ctxtVBKD-INCO1", text=incoterms)
+        if inco_location1:
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/ctxtVBKD-INCO2_L", text=inco_location1)
+        if order_reason:
+            self.set_combobox(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/cmbVBAK-AUGRU", key=order_reason)
+        if press_enter:
+            self.sap.send_vkey(vkey="Enter")
+    
+    def va01_line_items(self, line_items: list[dict], press_enter: Optional[bool] = True) -> None:
+        self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01")
+        for item in line_items:
+            self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/subSUBSCREEN_BUTTONS:SAPMV45A:4050/btnBT_POAN")
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtRV45A-MABNR[1,1]", text=item["material"])
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/txtRV45A-KWMENG[2,1]", text=item["target_quantity"])
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-VRKME[3,1]", text=item["uom"])
+            if "customer_material" in item:
+                self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-KDMAT[6,1]", text=item["customer_material"])
+            if "item_cat" in item:
+                self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-PSTYV[7,1]", text=item["item_cat"])
+            if press_enter:
+                self.sap.send_vkey(vkey="Enter")
+    
+    def create_new_sales_order(self, data: object, transaction: Optional[str] = "VA01", random_po: Optional[bool] = True) -> None:
         self.sap.start_transaction(transaction=transaction)
         self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtVBAK-AUART", text=data.order_type)
         self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtVBAK-VKORG", text=data.sales_org)
@@ -638,7 +730,10 @@ class SalesOrder:
         self.sap.send_vkey(vkey="Enter")
         self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUAGV-KUNNR", text=data.sold_to)
         self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUWEV-KUNNR", text=data.ship_to)
-        po = self.sap.input_random_value(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=data.order_type, suffix=True, date_time=True)
+        if random_po:
+            po = self.sap.input_random_value(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=data.order_type, suffix=True, date_time=True)
+        else:
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=data.po)
         self.sap.send_vkey(vkey="Enter")
         for item in data.line_items:
             self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/subSUBSCREEN_BUTTONS:SAPMV45A:4050/btnBT_POAN")
@@ -650,45 +745,32 @@ class SalesOrder:
     def create_sales_order_from_reference(self, data: object, transaction: Optional[str] = "VA01") -> None:
         pass
     
-    def update_shipping_condition(self) -> None:
-        # SAP.Click Element    /app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/btnBT_HEAD
-        # SAP.Click Element    /app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\02
-        # SAP.Set Combobox   /app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\02/ssubSUBSCREEN_BODY:SAPMV45A:4302/cmbVBAK-VSBED    ${shipping_condition}
-        # SAP.Send Vkey    Enter
-        # # Handle popup window for shipping condition redetermination
-        # SAP.Wait For Element    /app/con[0]/ses[0]/wnd[1]/usr/btnSPOP-VAROPTION1
-        # SAP.Click Element    /app/con[0]/ses[0]/wnd[1]/usr/btnSPOP-VAROPTION1
-        # SAP.Take Screenshot    shipping_conditions
-        pass
+    def va01_update_shipping_condition(self, shipping_condition: str, press_enter: Optional[bool] = True) -> None:
+        self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/btnBT_HEAD")
+        self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\02")
+        self.set_combobox(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\02/ssubSUBSCREEN_BODY:SAPMV45A:4302/cmbVBAK-VSBED", key=shipping_condition)
+        if press_enter:
+            self.sap.send_vkey(vkey="Enter")
+        self.sap.wait_for_element(id="/app/con[0]/ses[0]/wnd[1]/usr/btnSPOP-VAROPTION1")
+        self.sap.click_element(id="/app/con[0]/ses[0]/wnd[1]/usr/btnSPOP-VAROPTION1")
     
-    def update_incoterms(self) -> None:
-        # SAP.Click Element    /app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\03
-        # SAP.Input Text    /app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\03/ssubSUBSCREEN_BODY:SAPMV45A:4303/ctxtVBKD-INCO2_L    ${inco2}
-        # SAP.Send Vkey    Enter
-        # SAP.Wait For Element    /app/con[0]/ses[0]/wnd[1]/tbar[0]/btn[0]
-        # SAP.Click Element    /app/con[0]/ses[0]/wnd[1]/tbar[0]/btn[0]
-        # SAP.Take Screenshot    incoterm
-        pass
-    
-    def update_partners(self) -> None:
-        # SAP.Click Element    /app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\09
-        # SAP.Insert In Table    /app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\09/ssubSUBSCREEN_BODY:SAPMV45A:4352/subSUBSCREEN_PARTNER_OVERVIEW:SAPLV09C:1000/tblSAPLV09CGV_TC_PARTNER_OVERVIEW    ZQ    0
-        # SAP.Insert In Table    /app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\09/ssubSUBSCREEN_BODY:SAPMV45A:4352/subSUBSCREEN_PARTNER_OVERVIEW:SAPLV09C:1000/tblSAPLV09CGV_TC_PARTNER_OVERVIEW    ${zq_partner}    6
-        # SAP.Send Vkey    Enter
-        # ${status_bar_msg}=    SAP.Get Value    /app/con[0]/ses[0]/wnd[0]/sbar/pane[0]
-        # SAP.Element Value Should Contain    /app/con[0]/ses[0]/wnd[0]/sbar/pane[0]    ${EMPTY}    ${status_bar_msg}    partner_${zq_partner}
-        # SAP.Take Screenshot    partner
-        pass
+    def update_partners(self, partner_type: str, partner_number: str, press_enter: Optional[bool] = True) -> None:
+        self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\09")
+        self.sap.insert_in_table(table_id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\09/ssubSUBSCREEN_BODY:SAPMV45A:4352/subSUBSCREEN_PARTNER_OVERVIEW:SAPLV09C:1000/tblSAPLV09CGV_TC_PARTNER_OVERVIEW", value=partner_type, column_id=0)
+        self.sap.insert_in_table(table_id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\09/ssubSUBSCREEN_BODY:SAPMV45A:4352/subSUBSCREEN_PARTNER_OVERVIEW:SAPLV09C:1000/tblSAPLV09CGV_TC_PARTNER_OVERVIEW", value=partner_number, column_id=6)
+        if press_enter:
+            self.sap.send_vkey(vkey="Enter")
 
-    def update_outputs(self) -> None:
-        # SAP.Click Element    /app/con[0]/ses[0]/wnd[0]/mbar/menu[3]/menu[9]/menu[0]
-        # SAP.Insert In Table    /app/con[0]/ses[0]/wnd[0]/usr/tblSAPDV70ATC_NAST3    ${output_record}    1
-        # SAP.Send Vkey    Enter
-        # SAP.Click Element    /app/con[0]/ses[0]/wnd[0]/tbar[1]/btn[2]
-        # SAP.Input Text    /app/con[0]/ses[0]/wnd[0]/usr/ctxtNAST-LDEST    ${printer}
-        # SAP.Select Checkbox    /app/con[0]/ses[0]/wnd[0]/usr/chkNAST-DIMME
-        # SAP.Click Element    /app/con[0]/ses[0]/wnd[0]/tbar[0]/btn[3]
-        # SAP.Take Screenshot    output_record
-        # SAP.Click Element    /app/con[0]/ses[0]/wnd[0]/tbar[0]/btn[3]    
-        pass
+    def update_outputs(self, output_record: str, printer: str, print_immediate: Optional[bool] = True, press_enter: Optional[bool] = True) -> None:
+        self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/mbar/menu[3]/menu[9]/menu[0]")
+        self.sap.insert_in_table(table_id="/app/con[0]/ses[0]/wnd[0]/usr/tblSAPDV70ATC_NAST3", value=output_record, column_id=1)
+        self.sap.send_vkey(vkey="Enter")
+        self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/tbar[1]/btn[2]")
+        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtNAST-LDEST", text=printer)
+        if print_immediate:
+            self.sap.select_checkbox(id="/app/con[0]/ses[0]/wnd[0]/usr/chkNAST-DIMME")
+        else:
+            self.sap.unselect_checkbox(id="/app/con[0]/ses[0]/wnd[0]/usr/chkNAST-DIMME")
+        self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/tbar[0]/btn[3]")
+        self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/tbar[0]/btn[3]") 
 
