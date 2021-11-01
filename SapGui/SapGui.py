@@ -673,11 +673,12 @@ class SalesOrder:
         if press_enter:
             self.sap.send_vkey(vkey="Enter")
 
-    def va01_header(self, sold_to: str, ship_to: str, cust_ref: str, cust_ref_date: Optional[str] = self.today, press_enter: Optional[bool] = True) -> None:
+    def va01_header(self, sold_to: str, ship_to: str, cust_ref: str, cust_ref_date: Optional[str] = None, press_enter: Optional[bool] = True) -> None:
         self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUAGV-KUNNR", text=sold_to)
         self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUWEV-KUNNR", text=ship_to)
         self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=cust_ref)
-        self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/ctxtVBKD-BSTDK", text=cust_ref_date)
+        if cust_ref_date:
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/ctxtVBKD-BSTDK", text=cust_ref_date)
         if press_enter:
             self.sap.send_vkey(vkey="Enter")
     
