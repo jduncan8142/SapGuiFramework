@@ -765,14 +765,14 @@ class SalesOrder:
     
     def update_partners(self, partner_type: str, partner_number: str, press_enter: Optional[bool] = True) -> None:
         self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\09")
-        self.sap.insert_in_table(table_id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\09/ssubSUBSCREEN_BODY:SAPMV45A:4352/subSUBSCREEN_PARTNER_OVERVIEW:SAPLV09C:1000/tblSAPLV09CGV_TC_PARTNER_OVERVIEW", value=partner_type, column_id=0)
-        self.sap.insert_in_table(table_id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\09/ssubSUBSCREEN_BODY:SAPMV45A:4352/subSUBSCREEN_PARTNER_OVERVIEW:SAPLV09C:1000/tblSAPLV09CGV_TC_PARTNER_OVERVIEW", value=partner_number, column_id=6)
+        self.sap.insert_in_table(table_id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\09/ssubSUBSCREEN_BODY:SAPMV45A:4352/subSUBSCREEN_PARTNER_OVERVIEW:SAPLV09C:1000/tblSAPLV09CGV_TC_PARTNER_OVERVIEW", value=partner_type, column_index=0)
+        self.sap.insert_in_table(table_id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\09/ssubSUBSCREEN_BODY:SAPMV45A:4352/subSUBSCREEN_PARTNER_OVERVIEW:SAPLV09C:1000/tblSAPLV09CGV_TC_PARTNER_OVERVIEW", value=partner_number, column_index=6)
         if press_enter:
             self.sap.send_vkey(vkey="Enter")
 
     def update_outputs(self, output_record: str, printer: str, print_immediate: Optional[bool] = True, press_enter: Optional[bool] = True) -> None:
         self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/mbar/menu[3]/menu[9]/menu[0]")
-        self.sap.insert_in_table(table_id="/app/con[0]/ses[0]/wnd[0]/usr/tblSAPDV70ATC_NAST3", value=output_record, column_id=1)
+        self.sap.insert_in_table(table_id="/app/con[0]/ses[0]/wnd[0]/usr/tblSAPDV70ATC_NAST3", value=output_record, column_index=1)
         self.sap.send_vkey(vkey="Enter")
         self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/tbar[1]/btn[2]")
         self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtNAST-LDEST", text=printer)
