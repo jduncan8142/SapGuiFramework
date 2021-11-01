@@ -278,6 +278,29 @@ class Gui:
             self.take_screenshot(screenshot_name="get_statusbar_if_error_error.jpg")
             raise ValueError(f"Error while checking if statusbar had error msg.")
     
+    def get_status_msg(self) -> dict:
+        try:
+            msg_id = self.sbar.messageId
+        except:
+            msg_id = ""
+        try:
+            msg_number = self.sbar.messageNumber
+        except:
+            msg_number = ""
+        try:
+            msg_type = self.sbar.messageType
+        except: 
+            msg_type = ""
+        try:
+            msg = self.sbar.message
+        except:
+            msg = ""
+        try:
+            txt = self.sbar.text
+        except:
+            txt = ""
+        return {"messageId": msg_id, "messageNumber": msg_number, "messageType": msg_type, "message": msg, "text": txt}
+    
     def start_transaction(self, transaction: str) -> None:
         if transaction:
             self.transaction = transaction.upper()
