@@ -706,6 +706,12 @@ class SalesOrder:
             self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/ctxtVBKD-BSTDK", text=cust_ref_date)
         if press_enter:
             self.sap.send_vkey(vkey="Enter")
+        # Handle status msg about duplicate PO values
+        try:
+            result = self.sap.get_status_msg()
+        except:
+            result = "ERROR"
+        print(result)
     
     def va01_sales_tab(self, req_del_date_format: Optional[str] = None, req_del_date: Optional[str] = None, delver_plant: Optional[str] = None, delivery_block: Optional[str] = None, 
         billing_block: Optional[str] = None, pricing_date: Optional[str] = None, pyt_terms: Optional[str] = None, inco_version: Optional[str] = None, incoterms: Optional[str] = None, 
