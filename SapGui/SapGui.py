@@ -610,10 +610,19 @@ class Gui:
         self.wait()
     
     def try_and_continue(self, func: str, *args, **kwargs) -> Any:
+        result = None
+        self.wait(1.0)
         try:
             if hasattr(self, name) and callable(func := getattr(self, name)):
-                return func(*args, **kwargs)
-        except:
+                result = func(*args, **kwargs)
+                if result:
+                    print(f"RESULT -> {result}")
+                    return result
+                else:
+                    print(f"Successful but result was empty.")
+                    return None
+        except Exception as err:
+            print(f"ERROR -> {err}")
             return None
 
 
