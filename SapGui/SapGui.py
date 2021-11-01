@@ -644,6 +644,9 @@ class Gui:
         else:
             raise ValueError(f"Element type {element_type} has no set key method.")
         self.wait()
+    
+    def enter(self) -> None:
+        self.sap.send_vkey(vkey="Enter")
 
 
 class SalesOrder:
@@ -656,7 +659,8 @@ class SalesOrder:
     def va01(self) -> None:
         self.sap.start_transaction(transaction="VA01")
     
-    def va01_initial_screen(self, order_type: str, sales_org: str, dist_ch: str, division: str, sales_office: Optional[str] = "", sales_group: Optional[str] = "", press_enter: Optional[bool] = True) -> None:
+    def va01_initial_screen(self, order_type: str, sales_org: str, dist_ch: str, division: str, sales_office: Optional[str] = "", sales_group: Optional[str] = "", 
+        press_enter: Optional[bool] = True) -> None:
         self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtVBAK-AUART", text=order_type)
         self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtVBAK-VKORG", text=sales_org)
         self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtVBAK-VTWEG", text=dist_ch)
