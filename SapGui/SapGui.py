@@ -647,10 +647,10 @@ class Gui:
         self.wait()
     
     def enter(self) -> None:
-        self.sap.send_vkey(vkey="Enter")
+        self.send_vkey(vkey="Enter")
     
     def save(self) -> None:
-        self.sap.send_vkey(vkey="Ctrl+s")
+        self.send_vkey(vkey="Ctrl+s")
 
 
 class SalesOrder:
