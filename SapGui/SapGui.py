@@ -710,7 +710,7 @@ class SalesOrder:
         result = self.sap.get_status_msg()
         if result["messageId"].strip(" \n\r\t") == "V4" and result["messageNumber"] == "115" and result["messageType"] == "W":
             self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=datetime.datetime.now().strftime("%Y%m%d%H%M%S%f"))
-            self.enter()
+            self.sap.enter()
     
     def va01_sales_tab(self, req_del_date_format: Optional[str] = None, req_del_date: Optional[str] = None, delver_plant: Optional[str] = None, delivery_block: Optional[str] = None, 
         billing_block: Optional[str] = None, pricing_date: Optional[str] = None, pyt_terms: Optional[str] = None, inco_version: Optional[str] = None, incoterms: Optional[str] = None, 
