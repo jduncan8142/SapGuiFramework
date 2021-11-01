@@ -647,6 +647,9 @@ class Gui:
     
     def enter(self) -> None:
         self.sap.send_vkey(vkey="Enter")
+    
+    def save(self) -> None:
+        self.sap.send_vkey(vkey="Ctrl+s")
 
 
 class SalesOrder:
