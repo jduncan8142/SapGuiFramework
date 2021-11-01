@@ -681,9 +681,9 @@ class SalesOrder:
         if press_enter:
             self.sap.send_vkey(vkey="Enter")
     
-    def va01_sales_tab(self, req_del_date_format: Optional[str], req_del_date: Optional[str], delver_plant: Optional[str], complete_dlv: Optional[bool] = False, delivery_block: Optional[str], 
-        billing_block: Optional[str], pricing_date: Optional[str], pyt_terms: Optional[str], inco_version: Optional[str], incoterms: Optional[str], inco_location1: Optional[str],  
-        order_reason: Optional[str], press_enter: Optional[bool] = True) -> None:
+    def va01_sales_tab(self, req_del_date_format: Optional[str], req_del_date: Optional[str], delver_plant: Optional[str], delivery_block: Optional[str], billing_block: Optional[str], 
+        pricing_date: Optional[str], pyt_terms: Optional[str], inco_version: Optional[str], incoterms: Optional[str], inco_location1: Optional[str], order_reason: Optional[str], 
+        press_enter: Optional[bool] = True, complete_dlv: Optional[bool] = False) -> None:
         self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01")
         if req_del_date_format:
             self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/ctxtRV45A-KPRGBZ", text=req_del_date_format)
