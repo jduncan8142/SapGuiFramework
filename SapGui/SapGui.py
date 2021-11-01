@@ -616,13 +616,10 @@ class Gui:
             if hasattr(self, func_name) and callable(func := getattr(self, func_name)):
                 result = func(*args, **kwargs)
                 if result:
-                    print(f"RESULT -> {result}")
                     return result
                 else:
-                    print(f"Successful but result was empty.")
                     return None
         except Exception as err:
-            print(f"ERROR -> {err}")
             return None
 
 
