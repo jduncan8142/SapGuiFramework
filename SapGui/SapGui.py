@@ -757,7 +757,7 @@ class SalesOrder:
     def va01_update_shipping_condition(self, shipping_condition: str, press_enter: Optional[bool] = True) -> None:
         self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/btnBT_HEAD")
         self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\02")
-        self.set_combobox(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\02/ssubSUBSCREEN_BODY:SAPMV45A:4302/cmbVBAK-VSBED", key=shipping_condition)
+        self.sap.set_combobox(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\02/ssubSUBSCREEN_BODY:SAPMV45A:4302/cmbVBAK-VSBED", key=shipping_condition)
         if press_enter:
             self.sap.send_vkey(vkey="Enter")
         self.sap.wait_for_element(id="/app/con[0]/ses[0]/wnd[1]/usr/btnSPOP-VAROPTION1")
