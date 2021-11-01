@@ -617,12 +617,9 @@ class Gui:
         try:
             if hasattr(self, func_name) and callable(func := getattr(self, func_name)):
                 result = func(*args, **kwargs)
-                if result:
-                    return result
-                else:
-                    return None
         except Exception as err:
-            return None
+            pass
+        return result
     
     def get_next_empty_table_row(self, table_id: str, column_index: Optional[int] = 0) -> None:
         table = self.session.findById(table_id)
