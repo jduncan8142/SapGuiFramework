@@ -8,9 +8,50 @@ import datetime
 import time
 import string
 import random
-from robot.api import logger
 from typing import Optional, Any
+import logging
 
+
+class SapLogger:
+    def __init__(self, log_name: Optional[str] = None, log_path: Optional[str] = conf.path) -> None:
+        import log_conf as conf
+        self.enabled: bool = conf.enabled
+        self.log_name: str = log_name if log_name is not None else conf.name
+        self.log_file: str = os.join([log_path, f"{self.log_name}.log"])
+        self.log: logging.Logger = logging.getLogger(self.log_file)
+        self.formatter = logging.Formatter(conf.format)
+        self.file_handler = logging.FileHandler(self.log_file, mode=conf.file_mode)
+        self.file_handler.setFormatter(self.formatter)
+        self.stream_handler = logging.StreamHandler()
+        self.stream_handler = setFormatter(self.formatter)
+        match conf.verbosity:
+            case 5:
+                self.log.setLevel(logging.DEBUG)
+                self.file_handler.setLevel(logging.DEBUG)
+                self.stream_handler.setLevel(logging.DEBUG)
+            case 4:
+                self.log.setLevel(logging.INFO)
+                self.file_handler.setLevel(logging.INFO)
+                self.stream_handler.setLevel(logging.NOTSET)
+            case 3:
+                self.log.setLevel(logging.WARNING)
+                self.file_handler.setLevel(logging.WARNING)
+                self.stream_handler.setLevel(logging.NOTSET)
+            case 2:
+                self.log.setLevel(logging.ERROR)
+                self.file_handler.setLevel(logging.ERROR)
+                self.stream_handler.setLevel(logging.NOTSET)
+            case 1:
+                self.log.setLevel(logging.CRITICAL)
+                self.file_handler.setLevel(logging.CRITICAL)
+                self.stream_handler.setLevel(logging.NOTSET)
+            case _:
+                self.log.setLevel(logging.NOTSET)
+                self.file_handler.setLevel(logging.NOTSET)
+                self.stream_handler.setLevel(logging.NOTSET)
+        self.log.addHandler(self.file_handler)
+        self.log.addHandler(self.stream_handler)
+        
 
 class Screenshot:
     def __init__(self) -> None:
@@ -65,13 +106,12 @@ class Timer:
 
 class Gui:
     """
-     A Robocorp Robot Framework library for controlling the SAP GUI Desktop and focused 
+     Python Framework library for controlling the SAP GUI Desktop and focused 
      on testing business processes. The library uses the native SAP GUI scripting engine 
      for interaction with the desktop client application.
     """
 
     __version__ = '0.0.7'
-    ROBOT_LIBRARY_SCOPE = 'GLOBAL'
 
     def __init__(
         self, 
@@ -109,34 +149,6 @@ class Gui:
         self.session_info: win32com.client.CDispatch = None
 
         self.text_elements = ("GuiTextField", "GuiCTextField", "GuiPasswordField", "GuiLabel", "GuiTitlebar", "GuiStatusbar", "GuiButton", "GuiTab", "GuiShell", "GuiStatusPane")
-    
-    @property
-    def connection_number(self) -> int:
-        return self.__connection_number
-    
-    @connection_number.setter
-    def connection_number(self, value: int = 0) -> None:
-        try:
-            self.__connection_number = int(value)
-            logger.debug(f"connection_number set to: {value}")
-        except TypeError:
-            self.connection_number = int(0)
-            logger.debug(f"Unable to set connection_number with your given value. {value} cannot be converted to a int.")
-        except Exception as err:
-            self.connection_number = int(0)
-            logger.debug(f"Unable to set connection_number ->  {err}")
-    
-    @property
-    def session_number(self) -> int:
-        return self.__session_number
-
-    @session_number.setter
-    def session_number(self, value: int = 0) -> None:
-        try:
-            self.__session_number = int(value)
-        except TypeError as err:
-            logger.debug(err)
-            self.session_number = int(0)
 
     def is_error(self) -> bool:
         if self.subrc != 0:
@@ -169,6 +181,18 @@ class Gui:
         except Exception as err:
             logger.error(f"Unknown element id: {id} -> {err}")
             return None
+    
+    def pad(self, value: str, length: int, char: Optional[str] = "0", right: Optional[bool] = False) -> str:
+        if right:
+            tmp = value.split(".")
+            right_side = tmp[1]
+            while len(right_side) < length:
+                right_side = f"{right_side}{char}"
+            value = f"{tmp[0]}.{right_side}"
+        else:
+            while len(value) < length:
+                value = f"{char}{value}"
+        return value
 
     def connect_to_session(self) -> None:
         try:
