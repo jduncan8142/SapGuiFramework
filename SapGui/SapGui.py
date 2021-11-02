@@ -15,7 +15,7 @@ import logging
 class SapLogger:
     def __init__(self, log_name: Optional[str] = None, log_path: Optional[str] = None, verbosity: Optional[int] = None) -> None:
         import log_conf as conf
-        self.enabled: bool = conf.enabled
+        self.enabled: bool = conf.enable
         self.log_name: str = log_name if log_name is not None else conf.name
         self.log_path: str = log_path if log_path is not None else conf.path
         self.log_file: str = os.join([self.log_path, f"{self.log_name}.log"])
