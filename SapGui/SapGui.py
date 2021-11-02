@@ -13,11 +13,12 @@ import logging
 
 
 class SapLogger:
-    def __init__(self, log_name: Optional[str] = None, log_path: Optional[str] = conf.path, verbosity: Optional[int] = None) -> None:
+    def __init__(self, log_name: Optional[str] = None, log_path: Optional[str] = None, verbosity: Optional[int] = None) -> None:
         import log_conf as conf
         self.enabled: bool = conf.enabled
         self.log_name: str = log_name if log_name is not None else conf.name
-        self.log_file: str = os.join([log_path, f"{self.log_name}.log"])
+        self.log_path: str = log_path if log_path is not None else conf.path
+        self.log_file: str = os.join([self.log_path, f"{self.log_name}.log"])
         self.log: logging.Logger = logging.getLogger(self.log_file)
         self.formatter: logging.Formatter = logging.Formatter(conf.format)
         self.file_handler: logging.FileHandler = logging.FileHandler(self.log_file, mode=conf.file_mode)
