@@ -291,6 +291,15 @@ class Gui:
         self.sbar = self.session.findById(f"/app/con[{self.connection_number}]/ses[{self.session_number}]/wnd[{self.window}]/sbar")
         self.session_info = self.session.info
     
+    def exit(self) -> None:
+        self.connection.closeSession(f"/app/con[{self.connection_number}]/ses[{self.session_number}]")
+    
+    def restart_session(self, connection_name: Optional[str] = None) -> None:
+        self.connection_name = connection_name if connection_name is not None else self.connection_name
+        self.exit()
+        self.open_connection(connection_name=self.connection_name)
+
+    
     def wait_for_element(self, id: str, timeout: Optional[float] = 60.0) -> None:
         t = Timer()
         while not self.is_element(element=id) and t.elapsed() <= timeout:
