@@ -504,12 +504,15 @@ class Gui:
         except Exception as err:
             self.take_screenshot(screenshot_name="get_value_error.jpg")
             self.logger.error(f"Cannot get value for element type {element_type} for id {id} -> {err}")
+    
+    def text(self, id: str, text: str) -> None:
+        self.input_text(id=id, text=text)
 
     def input_text(self, id: str, text: str) -> None:
         if (element_type := self.get_element_type(id)) in self.text_elements:
             self.session.findById(id).text = text
             if element_type != "GuiPasswordField":
-                logger.info(f"Input {text} into text field {id}")
+                self.logger.info(f"Input {text} into text field {id}")
             self.wait()
         else:
             self.take_screenshot(screenshot_name="input_text_error.jpg")
