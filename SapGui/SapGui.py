@@ -58,6 +58,11 @@ class SapLogger:
                 self.stream_handler.setLevel(logging.NOTSET)
         self.log.addHandler(self.file_handler)
         self.log.addHandler(self.stream_handler)
+
+
+class Documentation:
+    def __init__(self) -> None:
+        pass
         
 
 class Screenshot:
