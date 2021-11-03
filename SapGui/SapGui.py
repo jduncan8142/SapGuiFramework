@@ -145,11 +145,11 @@ class Gui:
         self.date_format = date_format
 
         if not os.path.exists(screenshot_dir):
-            logger.debug(f"Screenshot directory {screenshot_dir} does not exist, creating it.")
+            self.logger.debug(f"Screenshot directory {screenshot_dir} does not exist, creating it.")
             try:
                 os.makedirs(screenshot_dir)
             except Exception as err:
-                logger.error(f"Unable to create screenshot directory {screenshot_dir}")
+                self.logger.error(f"Unable to create screenshot directory {screenshot_dir}")
         self.screenshot.screenshot_directory = screenshot_dir
         self.screenshot.monitor = monitor
 
@@ -300,11 +300,15 @@ class Gui:
     def exit(self) -> None:
         self.connection.closeSession(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]")
     
+    def maximize_window(self) -> None:
+        self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]").maximize()
+    
     def restart_session(self, connection_name: str) -> None:
         self.connection_name = connection_name if connection_name is not None else self.connection_name
         self.exit()
-        self.open_connection(connection_name=connection_name)
-        self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]").maximize()
+        self.__connection_number = 1
+        self.open_connection(connection_name=self.connection_name)
+        self.maximize_window()
 
     
     def wait_for_element(self, id: str, timeout: Optional[float] = 60.0) -> None:
@@ -323,7 +327,6 @@ class Gui:
                 return ""
         except:
             self.take_screenshot(screenshot_name="get_statusbar_if_error_error.jpg")
-            
             self.logger.error(f"Error while checking if statusbar had error msg.")
     
     def get_status_msg(self) -> dict:
