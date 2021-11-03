@@ -218,9 +218,9 @@ class Gui:
                 self.logger.error(f"Error while getting SAP scripting engine")
                 self.sap_gui = None
                 return
-            self.connection = self.sap_app.Children(self.connection_number)
+            self.connection = self.sap_app.Children(self.__connection_number)
             if not type(self.connection) == win32com.client.CDispatch:
-                self.logger.error(f"Error while getting SAP connection to Window {self.connection_number}")
+                self.logger.error(f"Error while getting SAP connection to Window {self.__connection_number}")
                 self.sap_app = None
                 self.sap_gui = None
                 return
@@ -229,9 +229,9 @@ class Gui:
                 self.sap_app = None
                 self.sap_gui = None
                 return
-            self.session = self.connection.Children(self.session_number)
+            self.session = self.connection.Children(self.__session_number)
             if not type(self.session) == win32com.client.CDispatch:
-                self.logger.error(f"Error while getting SAP session to Window {self.session_number}")
+                self.logger.error(f"Error while getting SAP session to Window {self.__session_number}")
                 self.connection = None
                 self.sap_app = None
                 self.sap_gui = None
@@ -242,7 +242,7 @@ class Gui:
                 self.sap_app = None
                 self.sap_gui = None
                 return
-            self.sbar = self.session.findById(f"/app/con[{self.connection_number}]/ses[{self.session_number}]/wnd[{self.window}]/sbar")
+            self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]/sbar")
             if not type(self.sbar) == win32com.client.CDispatch:
                 self.logger.error(f"Unable to get status bar during session connection")
                 self.connection = None
@@ -262,11 +262,11 @@ class Gui:
     def connect_to_existing_connection(self, connection_name: Optional[str] = None) -> None:
         if connection_name:
             self.connection_name = connection_name
-        self.connection = self.sap_gui.Children(self.connection_number)
+        self.connection = self.sap_gui.Children(self.__connection_number)
         if self.connection.Description == self.connection_name:
             self.session = self.connection.children(self.session_number)
             self.wait()
-            self.sbar = self.session.findById(f"/app/con[{self.connection_number}]/ses[{self.session_number}]/wnd[{self.window}]/sbar")
+            self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.session_number}]/wnd[{self.window}]/sbar")
             self.session_info = self.session.info
         else:
             self.take_screenshot(screenshot_name="connect_to_existing_connection_error.jpg")
@@ -298,13 +298,13 @@ class Gui:
         self.session_info = self.session.info
     
     def exit(self) -> None:
-        self.connection.closeSession(f"/app/con[{self.connection_number}]/ses[{self.session_number}]")
+        self.connection.closeSession(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]")
     
     def restart_session(self, connection_name: str) -> None:
         self.connection_name = connection_name if connection_name is not None else self.connection_name
         self.exit()
         self.open_connection(connection_name=connection_name)
-        self.session.findById(f"/app/con[{self.connection_number}]/ses[{self.session_number}]/wnd[{self.window}]").maximize()
+        self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]").maximize()
 
     
     def wait_for_element(self, id: str, timeout: Optional[float] = 60.0) -> None:
