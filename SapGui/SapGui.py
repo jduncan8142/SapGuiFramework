@@ -292,7 +292,7 @@ class Gui:
             self.connection = self.sap_app.OpenConnection(self.connection_name, True)
         except Exception as err:
             raise ValueError(f"Cannot open connection {self.connection_name}, please check connection name -> {err}")
-        self.session = self.connection.children(self.session_number)
+        self.session = self.connection.children(self.__session_number)
         self.wait()
         self.sbar = self.session.findById(f"/app/con[{self.connection_number}]/ses[{self.session_number}]/wnd[{self.window}]/sbar")
         self.session_info = self.session.info
