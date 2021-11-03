@@ -360,8 +360,12 @@ class Gui:
                 self.take_screenshot(screenshot_name="start_transaction_error.jpg")
                 raise ValueError(f"Unknown transaction: {self.transaction}")
     
+    start = start_transaction
+    
     def end_transaction(self) -> None:
         self.session.endTransaction()
+    
+    end = end_transaction
     
     def send_command(self, command: str) -> None:
         try:
@@ -379,6 +383,8 @@ class Gui:
             self.take_screenshot(screenshot_name="click_element_error.jpg")
             self.logger.warning(f"You cannot use 'Click Element' on element id type {id}")
         self.wait()
+    
+    click = click_element
 
     def click_toolbar_button(self, table_id: str, button_id: str) -> None:
         self.element_should_be_present(table_id)
@@ -457,6 +463,8 @@ class Gui:
         else:
             self.take_screenshot(screenshot_name="set_combobox_error.jpg")
             self.logger.error(f"Element type {element_type} for element {id} has no set key method.")
+    
+    combobox = set_combobox
 
     def get_element_location(self, id: str) -> tuple[int]:
         return (self.session.findById(id).screenLeft, self.session.findById(id).screenTop) if self.is_element(element=id) else (0, 0)
@@ -504,9 +512,6 @@ class Gui:
         except Exception as err:
             self.take_screenshot(screenshot_name="get_value_error.jpg")
             self.logger.error(f"Cannot get value for element type {element_type} for id {id} -> {err}")
-    
-    def text(self, id: str, text: str) -> None:
-        self.input_text(id=id, text=text)
 
     def input_text(self, id: str, text: str) -> None:
         if (element_type := self.get_element_type(id)) in self.text_elements:
@@ -517,6 +522,8 @@ class Gui:
         else:
             self.take_screenshot(screenshot_name="input_text_error.jpg")
             self.logger.error(f"Cannot use keyword 'input text' for element type {element_type}")
+    
+    text = input_text
 
     def string_generator(size: int = 6, chars: str = string.ascii_uppercase + string.digits):
         return ''.join(random.choice(chars) for _ in range(size))
@@ -722,10 +729,10 @@ class Gui:
         self.wait()
     
     def enter(self) -> None:
-        self.send_vkey(vkey="Enter")
+        self.send_vkey(vkey="ENTER")
     
     def save(self) -> None:
-        self.send_vkey(vkey="Ctrl+s")
+        self.send_vkey(vkey="CTRL+S")
 
 
 class SalesOrder:
