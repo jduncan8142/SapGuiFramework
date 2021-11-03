@@ -128,7 +128,8 @@ class Gui:
     def __init__(
         self, 
         test_case: Optional[str] = "Default Test Case",
-        log_path: Optional[str] = "output" , 
+        log_path: Optional[str] = "output",
+        verbosity: Optional[int] = 2,  
         screenshot_dir: Optional[str] = "output", 
         monitor: Optional[int] = 1, 
         explicit_wait: Optional[float] = 0.0, 
@@ -137,7 +138,7 @@ class Gui:
         connection_name: Optional[str] = None, 
         date_format: Optional[str] = "%m/%d/%Y") -> None:
         self.subrc: int = 0
-        self.logger = SapLogger(log_name=test_case, log_path=log_path)
+        self.logger = SapLogger(log_name=test_case, log_path=log_path, verbosity=verbosity)
         self.__connection_number: int = connection_number
         self.__session_number: int = session_number
         self.explicit_wait = explicit_wait
