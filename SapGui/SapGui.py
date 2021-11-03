@@ -304,6 +304,7 @@ class Gui:
     
     def exit(self) -> None:
         self.connection.closeSession(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]")
+        self.connection.closeConnection()
     
     def maximize_window(self) -> None:
         self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]").maximize()
@@ -311,7 +312,7 @@ class Gui:
     def restart_session(self, connection_name: str) -> None:
         self.connection_name = connection_name if connection_name is not None else self.connection_name
         self.exit()
-        self.__connection_number = 1
+        # self.__connection_number = 1
         self.open_connection(connection_name=self.connection_name)
         self.maximize_window()
 
