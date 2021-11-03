@@ -127,7 +127,7 @@ class Gui:
 
     def __init__(
         self, 
-        test_case: str,
+        test_case: Optional[str] = "Default Test Case",
         log_path: Optional[str] = "output" , 
         screenshot_dir: Optional[str] = "output", 
         monitor: Optional[int] = 1, 
@@ -179,7 +179,7 @@ class Gui:
             return False
     
     def log(self, msg: Any) -> None:
-        self.logger.INFO(str(msg))
+        self.logger.info(str(msg))
 
     def take_screenshot(self, screenshot_name: str = "") -> None:
         if not screenshot_name:
@@ -877,4 +877,6 @@ class SalesOrder:
             self.sap.unselect_checkbox(id="/app/con[0]/ses[0]/wnd[0]/usr/chkNAST-DIMME")
         self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/tbar[0]/btn[3]")
         self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/tbar[0]/btn[3]") 
+
+
 
