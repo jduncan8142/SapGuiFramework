@@ -1,3 +1,2 @@
-mss==6.1.0
-pywin32==300
-robotframework==4.1.2
+mss>=6.1.0
+pywin32>=300

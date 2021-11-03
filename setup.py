@@ -26,5 +26,5 @@ setup(
     ),
     package_dir={"": "SapGui"},
     python_requires=">=3.10",
-    install_requires=["pywin32>=300", "robotframework>=4.1.2"]
+    install_requires=["pywin32>=300", "mss>=6.1.0"]
 )
