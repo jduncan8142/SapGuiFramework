@@ -179,7 +179,7 @@ class Gui:
             return False
     
     def log(self, msg: Any) -> None:
-        self.logger.log.log.info(str(msg))
+        self.logger.log.info(str(msg))
 
     def take_screenshot(self, screenshot_name: str = "") -> None:
         if not screenshot_name:
@@ -197,7 +197,7 @@ class Gui:
         try:
             return self.session.findById(id).type
         except Exception as err:
-            self.logger.log.log.error(f"Unknown element id: {id} -> {err}")
+            self.logger.log.error(f"Unknown element id: {id} -> {err}")
             return None
     
     def pad(self, value: str, length: int, char: Optional[str] = "0", right: Optional[bool] = False) -> str:
@@ -216,40 +216,40 @@ class Gui:
         try:
             self.sap_gui = win32com.client.GetObject("SAPGUI")
             if not type(self.sap_gui) == win32com.client.CDispatch:
-                self.logger.log.log.error(f"Error while getting SAP GUI object using win32com.client")
+                self.logger.log.error(f"Error while getting SAP GUI object using win32com.client")
                 return
             self.sap_app = self.sap_gui.GetScriptingEngine
             if not type(self.sap_app) == win32com.client.CDispatch:
-                self.logger.log.log.error(f"Error while getting SAP scripting engine")
+                self.logger.log.error(f"Error while getting SAP scripting engine")
                 self.sap_gui = None
                 return
             self.connection = self.sap_app.Children(self.__connection_number)
             if not type(self.connection) == win32com.client.CDispatch:
-                self.logger.log.log.error(f"Error while getting SAP connection to Window {self.__connection_number}")
+                self.logger.log.error(f"Error while getting SAP connection to Window {self.__connection_number}")
                 self.sap_app = None
                 self.sap_gui = None
                 return
             if self.connection.DisabledByServer == True:
-                self.logger.log.log.error(f"SAP scripting is disable for this server")
+                self.logger.log.error(f"SAP scripting is disable for this server")
                 self.sap_app = None
                 self.sap_gui = None
                 return
             self.session = self.connection.Children(self.__session_number)
             if not type(self.session) == win32com.client.CDispatch:
-                self.logger.log.log.error(f"Error while getting SAP session to Window {self.__session_number}")
+                self.logger.log.error(f"Error while getting SAP session to Window {self.__session_number}")
                 self.connection = None
                 self.sap_app = None
                 self.sap_gui = None
                 return
             if self.session.Info.IsLowSpeedConnection == True:
-                self.logger.log.log.error(f"SAP connect is listed as low speed, scripting not possible")
+                self.logger.log.error(f"SAP connect is listed as low speed, scripting not possible")
                 self.connection = None
                 self.sap_app = None
                 self.sap_gui = None
                 return
             self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]/sbar")
             if not type(self.sbar) == win32com.client.CDispatch:
-                self.logger.log.log.error(f"Unable to get status bar during session connection")
+                self.logger.log.error(f"Unable to get status bar during session connection")
                 self.connection = None
                 self.sap_app = None
                 self.sap_gui = None
@@ -257,7 +257,7 @@ class Gui:
                 return
             self.session_info = self.session.info
         except:
-            self.logger.log.log.error(f"Unknown error while establishing connection with SAP GUI -> {sys.exc_info()[0]}")
+            self.logger.log.error(f"Unknown error while establishing connection with SAP GUI -> {sys.exc_info()[0]}")
         finally:
             self.sap_gui = None
             self.sap_app = None
@@ -282,11 +282,11 @@ class Gui:
             try:
                 self.sap_gui = win32com.client.GetObject("SAPGUI")
                 if not type(self.sap_gui) == win32com.client.CDispatch:
-                    self.logger.log.log.error(f"Error while getting SAP GUI object using win32com.client")
+                    self.logger.log.error(f"Error while getting SAP GUI object using win32com.client")
                     return
                 self.sap_app = self.sap_gui.GetScriptingEngine
                 if not type(self.sap_app) == win32com.client.CDispatch:
-                    self.logger.log.log.error(f"Error while getting SAP scripting engine")
+                    self.logger.log.error(f"Error while getting SAP scripting engine")
                     self.sap_gui = None
                     return
             except:
@@ -322,7 +322,7 @@ class Gui:
             self.wait(value=1.0)
         if not self.is_element(element=id):
             self.take_screenshot(screenshot_name="wait_for_element_error.jpg")
-            self.logger.log.log.error(f"Wait For Element could not find element with id {id}")
+            self.logger.log.error(f"Wait For Element could not find element with id {id}")
     
     def get_statusbar_if_error(self) -> str:
         try:
@@ -332,7 +332,7 @@ class Gui:
                 return ""
         except:
             self.take_screenshot(screenshot_name="get_statusbar_if_error_error.jpg")
-            self.logger.log.log.error(f"Error while checking if statusbar had error msg.")
+            self.logger.log.error(f"Error while checking if statusbar had error msg.")
     
     def get_status_msg(self) -> dict:
         try:
@@ -377,7 +377,7 @@ class Gui:
             self.session.sendCommand(command)
         except Exception as err:
             self.take_screenshot(screenshot_name="send_command_error.jpg")
-            self.logger.log.log.error(f"Error sending command {command} -> {err}")
+            self.logger.log.error(f"Error sending command {command} -> {err}")
 
     def click_element(self, id: str = None) -> None:
         if (element_type := self.get_element_type(id)) in ("GuiTab", "GuiMenu"):
@@ -386,7 +386,7 @@ class Gui:
             self.session.findById(id).press()
         else:
             self.take_screenshot(screenshot_name="click_element_error.jpg")
-            self.logger.log.log.warning(f"You cannot use 'Click Element' on element id type {id}")
+            self.logger.log.warning(f"You cannot use 'Click Element' on element id type {id}")
         self.wait()
     
     click = click_element
@@ -399,7 +399,7 @@ class Gui:
             self.session.findById(table_id).pressButton(button_id)
         except Exception as err:
             self.take_screenshot(screenshot_name="click_toolbar_button_error.jpg")
-            self.logger.log.log.error(f"Cannot find Table ID/Button ID: {' / '.join([table_id, button_id])}  <-->  {err}")
+            self.logger.log.error(f"Cannot find Table ID/Button ID: {' / '.join([table_id, button_id])}  <-->  {err}")
         self.wait()
 
     def doubleclick(self, id: str, item_id: str, column_id: str) -> None:
@@ -407,13 +407,13 @@ class Gui:
             self.session.findById(id).doubleClickItem(item_id, column_id)
         else:
             self.take_screenshot(screenshot_name="doubleclick_element_error.jpg")
-            self.logger.log.log.warning(f"You cannot use 'doubleclick element' on element type {element_type}")
+            self.logger.log.warning(f"You cannot use 'doubleclick element' on element type {element_type}")
         self.wait()
 
     def assert_element_present(self, id: str, message: Optional[str] = None) -> None:
         if not self.is_element(element=id):
             self.take_screenshot(screenshot_name="assert_element_present_error.jpg")
-            self.logger.log.log.error(message if message is not None else f"Cannot find element {id}")
+            self.logger.log.error(message if message is not None else f"Cannot find element {id}")
 
     def assert_element_value(self, id: str, expected_value: str, message: Optional[str] = None) -> None:
         if self.is_element(element=id):
@@ -424,19 +424,19 @@ class Gui:
             if expected_value != actual_value:
                 message = message if message is not None else f"Element value of {id} should be {expected_value}, but was {actual_value}"
                 self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
-                self.logger.log.log.error(f"AssertionError > Element value of {id} should be {expected_value}, but was {actual_value}")
+                self.logger.error(f"AssertionError > Element value of {id} should be {expected_value}, but was {actual_value}")
         elif element_type in ("GuiCheckBox", "GuiRadioButton"):
             if expected_value := bool(expected_value):
                 if not actual_value:
                     self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
-                    self.logger.log.log.error(f"AssertionError > Element value of {id} should be {expected_value}, but was {actual_value}")
+                    self.logger.log.error(f"AssertionError > Element value of {id} should be {expected_value}, but was {actual_value}")
             elif not expected_value:
                 if actual_value:
                     self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
-                    self.logger.log.log.error(f"AssertionError > Element value of {id} should be {expected_value}, but was {actual_value}")
+                    self.logger.log.error(f"AssertionError > Element value of {id} should be {expected_value}, but was {actual_value}")
         else:
             self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
-            self.logger.log.log.error(f"AssertionError > Element value of {id} should be {expected_value}, but was {actual_value}")
+            self.logger.log.error(f"AssertionError > Element value of {id} should be {expected_value}, but was {actual_value}")
 
     def assert_element_value_contains(self, id: str, expected_value: str, message: Optional[str] = None) -> None:
         if self.is_element(element=id):
@@ -447,10 +447,10 @@ class Gui:
             if expected_value != actual_value:
                 message = message if message is not None else f"Element value of {id} does not contain {expected_value} but was {actual_value}"
                 self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
-                self.logger.log.log.error(f"AssertionError > {message}")
+                self.logger.log.error(f"AssertionError > {message}")
         else:
             self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
-            self.logger.log.log.error(f"AssertionError > Element value of {id} does not contain {expected_value}, but was {actual_value}")
+            self.logger.log.error(f"AssertionError > Element value of {id} does not contain {expected_value}, but was {actual_value}")
 
     def get_cell_value(self, table_id: str, row_num: int, col_id: str) -> str:
         if self.is_element(element=table_id):
@@ -458,7 +458,7 @@ class Gui:
                 return self.session.findById(table_id).getCellValue(row_num, col_id)
             except Exception as err:
                 self.take_screenshot(screenshot_name="get_cell_value_error.jpg")
-                self.logger.log.log.error(f"Cannot find cell value for table: {table_id}, row: {row_num}, and column: {col_id} -> {err}")
+                self.logger.log.error(f"Cannot find cell value for table: {table_id}, row: {row_num}, and column: {col_id} -> {err}")
 
     def set_combobox(self, id: str, key: str) -> None:
         if (element_type := self.get_element_type(id)) == "GuiComboBox":
@@ -467,7 +467,7 @@ class Gui:
             self.wait()
         else:
             self.take_screenshot(screenshot_name="set_combobox_error.jpg")
-            self.logger.log.log.error(f"Element type {element_type} for element {id} has no set key method.")
+            self.logger.log.error(f"Element type {element_type} for element {id} has no set key method.")
     
     combobox = set_combobox
 
@@ -479,14 +479,14 @@ class Gui:
             return self.session.findById(id).type
         except Exception as err:
             self.take_screenshot(screenshot_name="get_element_type_error.jpg")
-            self.logger.log.log.error(f"Cannot find element type for id: {id} -> {err}")
+            self.logger.log.error(f"Cannot find element type for id: {id} -> {err}")
 
     def get_row_count(self, table_id) -> int:
         try:
             return self.session.findById(table_id).rowCount if self.is_element(element=table_id) else 0
         except Exception as err:
             self.take_screenshot(screenshot_name="get_row_count_error.jpg")
-            self.logger.log.log.error(f"Cannot find row count for table: {table_id} -> {err}")
+            self.logger.log.error(f"Cannot find row count for table: {table_id} -> {err}")
 
     def get_scroll_position(self, id: str) -> int:
         self.wait()
@@ -494,14 +494,14 @@ class Gui:
             return int(self.session.findById(id).verticalScrollbar.position) if self.is_element(element=id) else 0
         except Exception as err:
             self.take_screenshot(screenshot_name="get_scroll_position_error.jpg")
-            self.logger.log.log.error(f"Cannot get scrollbar position for: {id} -> {err}")
+            self.logger.log.error(f"Cannot get scrollbar position for: {id} -> {err}")
 
     def get_window_title(self, id: str) -> str:
         try:
             return self.session.findById(id).text if self.is_element(element=id) else ""
         except Exception as err:
             self.take_screenshot(screenshot_name="get_window_title_error.jpg")
-            self.logger.log.log.error(f"Cannot find window with locator {id} -> {err}")
+            self.logger.log.error(f"Cannot find window with locator {id} -> {err}")
 
     def get_value(self, id: str) -> str | bool:
         try:
