@@ -463,7 +463,7 @@ class Gui:
     def set_combobox(self, id: str, key: str) -> None:
         if (element_type := self.get_element_type(id)) == "GuiComboBox":
             self.session.findById(id).key = key
-            logger.info(f"ComboBox value {key} selected from {id}")
+            self.logger.log.info(f"ComboBox value {key} selected from {id}")
             self.wait()
         else:
             self.take_screenshot(screenshot_name="set_combobox_error.jpg")
