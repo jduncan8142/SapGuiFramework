@@ -60,11 +60,6 @@ class SapLogger:
         self.log.addHandler(self.stream_handler)
 
 
-class Documentation:
-    def __init__(self) -> None:
-        pass
-        
-
 class Screenshot:
     def __init__(self) -> None:
         self.sct = mss()
@@ -165,6 +160,9 @@ class Gui:
         self.session_info: win32com.client.CDispatch = None
 
         self.text_elements = ("GuiTextField", "GuiCTextField", "GuiPasswordField", "GuiLabel", "GuiTitlebar", "GuiStatusbar", "GuiButton", "GuiTab", "GuiShell", "GuiStatusPane")
+    
+    def documentation(self, msg: str) -> None:
+        self.logger.log.info(msg=msg)
 
     def is_error(self) -> bool:
         if self.subrc != 0:
