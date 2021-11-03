@@ -29,7 +29,7 @@ class SapLogger:
         self.file_handler: logging.FileHandler = logging.FileHandler(self.log_file, mode=conf.file_mode)
         self.file_handler.setFormatter(self.formatter)
         self.stream_handler: logging.StreamHandler = logging.StreamHandler()
-        self.stream_handler = setFormatter(self.formatter)
+        self.stream_handler.setFormatter(self.formatter)
         self.verbosity: int = verbosity if verbosity is not None else conf.verbosity
         match self.verbosity:
             case 5:
