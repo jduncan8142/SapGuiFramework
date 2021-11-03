@@ -294,16 +294,17 @@ class Gui:
             raise ValueError(f"Cannot open connection {self.connection_name}, please check connection name -> {err}")
         self.session = self.connection.children(self.__session_number)
         self.wait()
-        self.sbar = self.session.findById(f"/app/con[{self.connection_number}]/ses[{self.session_number}]/wnd[{self.window}]/sbar")
+        self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]/sbar")
         self.session_info = self.session.info
     
     def exit(self) -> None:
         self.connection.closeSession(f"/app/con[{self.connection_number}]/ses[{self.session_number}]")
     
-    def restart_session(self, connection_name: Optional[str] = None) -> None:
+    def restart_session(self, connection_name: str) -> None:
         self.connection_name = connection_name if connection_name is not None else self.connection_name
         self.exit()
-        self.open_connection(connection_name=self.connection_name)
+        self.open_connection(connection_name=connection_name)
+        self.session.findById(f"/app/con[{self.connection_number}]/ses[{self.session_number}]/wnd[{self.window}]").maximize()
 
     
     def wait_for_element(self, id: str, timeout: Optional[float] = 60.0) -> None:
