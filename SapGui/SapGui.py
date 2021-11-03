@@ -19,9 +19,9 @@ class SapLogger:
         self.log_name: str = log_name if log_name is not None else conf.name
         self.log_path: str = log_path if log_path is not None else conf.path
         self.log_file: str = os.path.join(self.log_path, f"{self.log_name}.log")
-        if not os.path.is_dir(self.log_path):
+        if not os.path.isdir(self.log_path):
             os.mkdir(self.log_path)
-        if not os.path.is_file(self.log_file):
+        if not os.path.isfile(self.log_file):
             with open(self.log_file, "w") as f:
                 pass
         self.log: logging.Logger = logging.getLogger(self.log_file)
