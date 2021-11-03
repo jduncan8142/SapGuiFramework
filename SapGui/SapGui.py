@@ -309,13 +309,13 @@ class Gui:
     def maximize_window(self) -> None:
         self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]").maximize()
     
-    def restart_session(self, connection_name: str) -> None:
+    def restart_session(self, connection_name: str, delay: Optional[float] = 0.0) -> None:
         self.connection_name = connection_name if connection_name is not None else self.connection_name
         self.exit()
         # self.__connection_number = 1
         self.open_connection(connection_name=self.connection_name)
         self.maximize_window()
-
+        self.wait(value=delay)
     
     def wait_for_element(self, id: str, timeout: Optional[float] = 60.0) -> None:
         t = Timer()
