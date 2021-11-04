@@ -42,8 +42,6 @@ def step(func):
             user_input = messagebox.askyesno(title=func.__name__, message="Continue?")
             if user_input:
                 res = func(*args, **kw)
-            else:
-                sys.exit()
         return res
     return wrapper
 
