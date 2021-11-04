@@ -1,6 +1,5 @@
 import win32com.client
 import time
-from mss import mss
 import re
 import os
 import sys
@@ -8,8 +7,44 @@ import datetime
 import time
 import string
 import random
-from typing import Optional, Any
 import logging
+import tkinter as tk
+from typing import Optional, Any
+from functools import wraps
+from mss import mss
+from tkinter import messagebox
+
+
+STEP_ENABLED = False
+
+
+def decorate_all_functions(function_decorator):
+    def decorator(cls):
+        for name, obj in vars(cls).items():
+            if callable(obj):
+                try:
+                    obj = obj.__func__  # unwrap Python 2 unbound method
+                except AttributeError:
+                    pass  # not needed in Python 3
+                setattr(cls, name, function_decorator(obj))
+        return cls
+    return decorator
+
+
+def step(func):
+    @wraps(func)
+    def wrapper(*args, **kw):
+        global STEP_ENABLED
+        if STEP_ENABLED:
+            ROOT = tk.Tk()
+            ROOT.withdraw()
+            user_input = messagebox.askyesno(title=func.__name__, message="Continue?")
+            if user_input:
+                res = func(*args, **kw)
+            else:
+                sys.exit()
+        return res
+    return wrapper
 
 
 class SapLogger:
@@ -111,6 +146,7 @@ class Timer:
         return time.time() - self.start_time
 
 
+@decorate_all_functions(step)
 class Gui:
     """
      Python Framework library for controlling the SAP GUI Desktop and focused 
@@ -131,7 +167,10 @@ class Gui:
         connection_number: Optional[int] = 0, 
         session_number: Optional[int] = 0, 
         connection_name: Optional[str] = None, 
-        date_format: Optional[str] = "%m/%d/%Y") -> None:
+        date_format: Optional[str] = "%m/%d/%Y", 
+        stepping: Optional[bool] = False) -> None:
+        global STEP_ENABLED
+        STEP_ENABLED = stepping
         self.subrc: int = 0
         self.logger = SapLogger(log_name=test_case, log_path=log_path, verbosity=verbosity)
         self.__connection_number: int = connection_number
