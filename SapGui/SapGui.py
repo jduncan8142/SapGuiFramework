@@ -145,7 +145,7 @@ class Timer:
         return time.time() - self.start_time
 
 
-@decorate_all_functions(step)
+# @decorate_all_functions(step)
 class Gui:
     """
      Python Framework library for controlling the SAP GUI Desktop and focused 
