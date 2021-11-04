@@ -35,6 +35,7 @@ def step(func):
     @wraps(func)
     def wrapper(*args, **kw):
         global STEP_ENABLED
+        res: Any = None
         if STEP_ENABLED:
             ROOT = tk.Tk()
             ROOT.withdraw()
