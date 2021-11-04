@@ -8,6 +8,7 @@ import time
 import string
 import random
 import logging
+import base64
 import tkinter as tk
 from typing import Optional, Any
 from functools import wraps
@@ -58,6 +59,16 @@ class SapLogger:
         if not os.path.isfile(self.log_file):
             with open(self.log_file, "w") as f:
                 pass
+        
+        # Create custom logging level for screenshots
+        SCREENSHOT_LEVELV_NUM = 60 
+        logging.addLevelName(SCREENSHOT_LEVELV_NUM, "SHOT")
+        def shot(self, message, *args, **kws):
+            if self.isEnabledFor(SCREENSHOT_LEVELV_NUM):
+                # Yes, logger takes its '*args' as 'args'.
+                self._log(SCREENSHOT_LEVELV_NUM, message, args, **kws)
+        logging.Logger.shot = shot
+
         self.log: logging.Logger = logging.getLogger(self.log_file)
         self.formatter: logging.Formatter = logging.Formatter(conf.format)
         self.file_handler: logging.FileHandler = logging.FileHandler(self.log_file, mode=conf.file_mode)
@@ -130,7 +141,7 @@ class Screenshot:
         else:
             if not self.__directory:
                 self.screenshot_directory = "output"
-        __name = name if name is not None else f"screenshot_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.jpg"
+        __name = f"{name}.jpg" if name is not None else f"screenshot_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.jpg"
         return [x for x in self.sct.save(mon=self.__monitor, output=os.path.join(self.__directory, __name))]
 
 
@@ -218,11 +229,22 @@ class Gui:
     def log(self, msg: Any) -> None:
         self.logger.log.info(str(msg))
 
-    def take_screenshot(self, screenshot_name: str = "") -> None:
+    def take_screenshot(self, screenshot_name: str = "", logger: Optional[SapLogger] = None) -> None:
+        _log = self.logger
+        _file_names = None
+        if logger:
+            _log = logger
         if not screenshot_name:
-            self.screenshot.shot()
+            _file_names = self.screenshot.shot()
         else:
-            self.screenshot.shot(name=screenshot_name)
+            _file_names = self.screenshot.shot(name=screenshot_name)
+        if _file_names:
+            for f in _file_names:
+                encoded_img = None
+                with open(f, "rb") as f_img:
+                    encoded_img = base64.b64encode(f_img.read())
+                _log.log.shot(f"{msg}|{encoded_img}")
+            
     
     def wait(self, value: Optional[float] = None) -> None:
         if not value:
