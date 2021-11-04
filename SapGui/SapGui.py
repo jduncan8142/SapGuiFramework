@@ -15,7 +15,7 @@ from mss import mss
 from tkinter import messagebox
 
 
-STEP_ENABLED = False
+STEP_ENABLED = True
 
 
 def decorate_all_functions(function_decorator):
