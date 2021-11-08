@@ -182,7 +182,7 @@ class Gui:
         self.text_elements = ("GuiTextField", "GuiCTextField", "GuiPasswordField", "GuiLabel", "GuiTitlebar", "GuiStatusbar", "GuiButton", "GuiTab", "GuiShell", "GuiStatusPane")
     
     def documentation(self, msg: str) -> None:
-        self.logger.log.documentation(msg=msg)
+        self.logger.log.documentation(msg)
 
     def is_error(self) -> bool:
         if self.subrc != 0:
