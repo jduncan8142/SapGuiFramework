@@ -9,42 +9,8 @@ import string
 import random
 import logging
 import base64
-import tkinter as tk
 from typing import Optional, Any
-from functools import wraps
 from mss import mss
-from tkinter import messagebox
-
-
-STEP_ENABLED = True
-
-
-def decorate_all_functions(function_decorator):
-    def decorator(cls):
-        for name, obj in vars(cls).items():
-            if callable(obj):
-                try:
-                    obj = obj.__func__  # unwrap Python 2 unbound method
-                except AttributeError:
-                    pass  # not needed in Python 3
-                setattr(cls, name, function_decorator(obj))
-        return cls
-    return decorator
-
-
-def step(func):
-    @wraps(func)
-    def wrapper(*args, **kw):
-        global STEP_ENABLED
-        res: Any = None
-        if STEP_ENABLED:
-            ROOT = tk.Tk()
-            ROOT.withdraw()
-            user_input = messagebox.askyesno(title=func.__name__, message="Continue?")
-            if user_input:
-                res = func(*args, **kw)
-        return res
-    return wrapper
 
 
 class SapLogger:
@@ -68,6 +34,15 @@ class SapLogger:
                 # Yes, logger takes its '*args' as 'args'.
                 self._log(SCREENSHOT_LEVELV_NUM, message, args, **kws)
         logging.Logger.shot = shot
+
+        # Create custom logging level for documentation
+        DOUMENTATION_LEVELV_NUM = 70 
+        logging.addLevelName(DOUMENTATION_LEVELV_NUM, "DOCUMENTATION")
+        def documentation(self, message, *args, **kws):
+            if self.isEnabledFor(DOUMENTATION_LEVELV_NUM):
+                # Yes, logger takes its '*args' as 'args'.
+                self._log(DOUMENTATION_LEVELV_NUM, message, args, **kws)
+        logging.Logger.documentation = documentation
 
         self.log: logging.Logger = logging.getLogger(self.log_file)
         self.formatter: logging.Formatter = logging.Formatter(conf.format)
@@ -156,7 +131,6 @@ class Timer:
         return time.time() - self.start_time
 
 
-# @decorate_all_functions(step)
 class Gui:
     """
      Python Framework library for controlling the SAP GUI Desktop and focused 
@@ -177,10 +151,7 @@ class Gui:
         connection_number: Optional[int] = 0, 
         session_number: Optional[int] = 0, 
         connection_name: Optional[str] = None, 
-        date_format: Optional[str] = "%m/%d/%Y", 
-        stepping: Optional[bool] = False) -> None:
-        global STEP_ENABLED
-        STEP_ENABLED = stepping
+        date_format: Optional[str] = "%m/%d/%Y") -> None:
         self.subrc: int = 0
         self.logger = SapLogger(log_name=test_case, log_path=log_path, verbosity=verbosity)
         self.__connection_number: int = connection_number
@@ -211,7 +182,7 @@ class Gui:
         self.text_elements = ("GuiTextField", "GuiCTextField", "GuiPasswordField", "GuiLabel", "GuiTitlebar", "GuiStatusbar", "GuiButton", "GuiTab", "GuiShell", "GuiStatusPane")
     
     def documentation(self, msg: str) -> None:
-        self.logger.log.info(msg=msg)
+        self.logger.log.documentation(msg=msg)
 
     def is_error(self) -> bool:
         if self.subrc != 0:
@@ -229,7 +200,7 @@ class Gui:
     def log(self, msg: Any) -> None:
         self.logger.log.info(str(msg))
 
-    def take_screenshot(self, screenshot_name: str = "", logger: Optional[SapLogger] = None) -> None:
+    def take_screenshot(self, screenshot_name: Optional[str] = "", msg: Optional[str] = "", logger: Optional[SapLogger] = None) -> None:
         _log = self.logger
         _file_names = None
         if logger:
@@ -243,7 +214,7 @@ class Gui:
                 encoded_img = None
                 with open(f, "rb") as f_img:
                     encoded_img = base64.b64encode(f_img.read())
-                _log.log.shot(f"{msg}|{encoded_img}")
+                _log.log.shot(f"{msg}|{f}|{encoded_img}")
             
     
     def wait(self, value: Optional[float] = None) -> None:
