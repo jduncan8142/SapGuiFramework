@@ -9,8 +9,17 @@ import string
 import random
 import logging
 import base64
+import atexit
 from typing import Optional, Any
 from mss import mss
+
+
+def failed():
+    return "FAIL"
+
+
+def passed():
+    return "PASS"
 
 
 class SapLogger:
@@ -152,8 +161,10 @@ class Gui:
         session_number: Optional[int] = 0, 
         connection_name: Optional[str] = None, 
         date_format: Optional[str] = "%m/%d/%Y") -> None:
+        atexit.register(self.cleanup)
+        self.test_case_name: str = test_case
         self.subrc: int = 0
-        self.logger = SapLogger(log_name=test_case, log_path=log_path, verbosity=verbosity)
+        self.logger = SapLogger(log_name=self.test_case_name, log_path=log_path, verbosity=verbosity)
         self.__connection_number: int = connection_number
         self.__session_number: int = session_number
         self.explicit_wait = explicit_wait
@@ -180,9 +191,19 @@ class Gui:
         self.session_info: win32com.client.CDispatch = None
 
         self.text_elements = ("GuiTextField", "GuiCTextField", "GuiPasswordField", "GuiLabel", "GuiTitlebar", "GuiStatusbar", "GuiButton", "GuiTab", "GuiShell", "GuiStatusPane")
+        self.task_status = None
+        self.test_status = None
     
+    def cleanup(self):
+        self.documentation(f"{self.test_case_name} completed with status: {self.test_status}")
+
     def documentation(self, msg: str) -> None:
         self.logger.log.documentation(msg)
+    
+    def fail(self) -> None:
+        self.task_status = failed()
+        self.test_status = failed()
+        sys.exit()
 
     def is_error(self) -> bool:
         if self.subrc != 0:
@@ -342,7 +363,6 @@ class Gui:
     def restart_session(self, connection_name: str, delay: Optional[float] = 0.0) -> None:
         self.connection_name = connection_name if connection_name is not None else self.connection_name
         self.exit()
-        # self.__connection_number = 1
         self.open_connection(connection_name=self.connection_name)
         self.maximize_window()
         self.wait(value=delay)
@@ -354,6 +374,7 @@ class Gui:
         if not self.is_element(element=id):
             self.take_screenshot(screenshot_name="wait_for_element_error.jpg")
             self.logger.log.error(f"Wait For Element could not find element with id {id}")
+            self.fail()
     
     def get_statusbar_if_error(self) -> str:
         try:
@@ -394,7 +415,8 @@ class Gui:
             self.session.startTransaction(self.transaction)
             if self.get_statusbar_if_error() in (f"Transactie {self.transaction} bestaat niet", f"Transaction {self.transaction} does not exist", f"Transaktion {self.transaction} existiert nicht"):
                 self.take_screenshot(screenshot_name="start_transaction_error.jpg")
-                raise ValueError(f"Unknown transaction: {self.transaction}")
+                self.logger.log.error(f"ValueError > Unknown transaction: {self.transaction}")
+                self.fail()
     
     start = start_transaction
     
@@ -409,6 +431,7 @@ class Gui:
         except Exception as err:
             self.take_screenshot(screenshot_name="send_command_error.jpg")
             self.logger.log.error(f"Error sending command {command} -> {err}")
+            self.fail()
 
     def click_element(self, id: str = None) -> None:
         if (element_type := self.get_element_type(id)) in ("GuiTab", "GuiMenu"):
@@ -455,19 +478,52 @@ class Gui:
             if expected_value != actual_value:
                 message = message if message is not None else f"Element value of {id} should be {expected_value}, but was {actual_value}"
                 self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
-                self.logger.error(f"AssertionError > Element value of {id} should be {expected_value}, but was {actual_value}")
+                self.logger.error(f"AssertEqualError > Element value of {id} should be {expected_value}, but was {actual_value}")
+                self.fail()
         elif element_type in ("GuiCheckBox", "GuiRadioButton"):
             if expected_value := bool(expected_value):
                 if not actual_value:
                     self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
-                    self.logger.log.error(f"AssertionError > Element value of {id} should be {expected_value}, but was {actual_value}")
+                    self.logger.log.error(f"AssertEqualError > Element value of {id} should be {expected_value}, but was {actual_value}")
+                    self.fail()
             elif not expected_value:
                 if actual_value:
                     self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
-                    self.logger.log.error(f"AssertionError > Element value of {id} should be {expected_value}, but was {actual_value}")
+                    self.logger.log.error(f"AssertEqualError > Element value of {id} should be {expected_value}, but was {actual_value}")
+                    self.fail()
         else:
             self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
-            self.logger.log.error(f"AssertionError > Element value of {id} should be {expected_value}, but was {actual_value}")
+            self.logger.log.error(f"AssertEqualError > Element value of {id} should be {expected_value}, but was {actual_value}")
+            self.fail()
+    
+    assert_element_value_equal = assert_element_value
+
+    def assert_element_value_not_equal(self, id: str, expected_value: str, message: Optional[str] = None) -> None:
+        if self.is_element(element=id):
+            actual_value = self.get_value(id=id)
+            self.session.findById(id).setfocus()
+            self.wait()
+        if (element_type := self.get_element_type(id)) in self.text_elements:
+            if expected_value == actual_value:
+                message = message if message is not None else f"Element value of {id} should not be equal to {expected_value}"
+                self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
+                self.logger.error(f"AssertNotEqualError > Element value of {id} should not be equal to {expected_value}")
+                self.fail()
+        elif element_type in ("GuiCheckBox", "GuiRadioButton"):
+            if expected_value := bool(expected_value):
+                if not actual_value:
+                    self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
+                    self.logger.log.error(f"AssertNotEqualError > Element value of {id} should not be equal to {expected_value}")
+                    self.fail()
+            elif not expected_value:
+                if actual_value:
+                    self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
+                    self.logger.log.error(f"AssertNotEqualError > Element value of {id} should not be equal to {expected_value}")
+                    self.fail()
+        else:
+            self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
+            self.logger.log.error(f"AssertNotEqualError > Element value of {id} should not be equal to {expected_value}")
+            self.fail()
 
     def assert_element_value_contains(self, id: str, expected_value: str, message: Optional[str] = None) -> None:
         if self.is_element(element=id):
@@ -478,18 +534,21 @@ class Gui:
             if expected_value != actual_value:
                 message = message if message is not None else f"Element value of {id} does not contain {expected_value} but was {actual_value}"
                 self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
-                self.logger.log.error(f"AssertionError > {message}")
+                self.logger.log.error(f"AssertContainsError > {message}")
+                self.fail()
         else:
             self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
-            self.logger.log.error(f"AssertionError > Element value of {id} does not contain {expected_value}, but was {actual_value}")
+            self.logger.log.error(f"AssertContainsError > Element value of {id} does not contain {expected_value}, but was {actual_value}")
+            self.fail()
 
-    def get_cell_value(self, table_id: str, row_num: int, col_id: str) -> str:
+    def get_cell_value(self, table_id: str, row_num: int, col_id: str) -> str | None:
         if self.is_element(element=table_id):
             try:
                 return self.session.findById(table_id).getCellValue(row_num, col_id)
             except Exception as err:
                 self.take_screenshot(screenshot_name="get_cell_value_error.jpg")
                 self.logger.log.error(f"Cannot find cell value for table: {table_id}, row: {row_num}, and column: {col_id} -> {err}")
+                return None
 
     def set_combobox(self, id: str, key: str) -> None:
         if (element_type := self.get_element_type(id)) == "GuiComboBox":
