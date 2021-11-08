@@ -202,10 +202,11 @@ class Gui:
     def documentation(self, msg: str) -> None:
         self.logger.log.documentation(msg)
     
-    def fail(self) -> None:
+    def fail(self, exit_on_error: Optional[bool] = True) -> None:
         self.task_status = failed()
         self.test_status = failed()
-        sys.exit()
+        if exit:
+            sys.exit()
     
     def task_passed(self) -> None:
         self.task_status = passed()
@@ -382,17 +383,17 @@ class Gui:
         self.wait(value=delay)
         self.task_passed()
     
-    def wait_for_element(self, id: str, timeout: Optional[float] = 60.0) -> None:
+    def wait_for_element(self, id: str, timeout: Optional[float] = 60.0, exit_on_error: Optional[bool] = True) -> None:
         t = Timer()
         while not self.is_element(element=id) and t.elapsed() <= timeout:
             self.wait(value=1.0)
         if not self.is_element(element=id):
             self.take_screenshot(screenshot_name="wait_for_element_error.jpg")
             self.logger.log.error(f"Wait For Element could not find element with id {id}")
-            self.fail()
+            self.fail(exit_on_error)
         self.task_passed()
     
-    def get_statusbar_if_error(self) -> str:
+    def get_statusbar_if_error(self, exit_on_error: Optional[bool] = True) -> str:
         try:
             if self.sbar.messageType == "E":
                 self.task_passed()
@@ -403,7 +404,7 @@ class Gui:
         except:
             self.take_screenshot(screenshot_name="get_statusbar_if_error_error.jpg")
             self.logger.log.error(f"Error while checking if statusbar had error msg.")
-            self.fail()
+            self.fail(exit_on_error)
     
     def get_status_msg(self) -> dict:
         try:
