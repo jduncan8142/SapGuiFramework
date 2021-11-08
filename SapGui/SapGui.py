@@ -483,7 +483,7 @@ class Gui:
             if expected_value != actual_value:
                 message = message if message is not None else f"Element value of {id} should be {expected_value}, but was {actual_value}"
                 self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
-                self.logger.error(f"AssertEqualError > Element value of {id} should be {expected_value}, but was {actual_value}")
+                self.logger.log.error(f"AssertEqualError > Element value of {id} should be {expected_value}, but was {actual_value}")
                 self.fail()
         elif element_type in ("GuiCheckBox", "GuiRadioButton"):
             if expected_value := bool(expected_value):
@@ -512,7 +512,7 @@ class Gui:
             if expected_value == actual_value:
                 message = message if message is not None else f"Element value of {id} should not be equal to {expected_value}"
                 self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
-                self.logger.error(f"AssertNotEqualError > Element value of {id} should not be equal to {expected_value}")
+                self.logger.log.error(f"AssertNotEqualError > Element value of {id} should not be equal to {expected_value}")
                 self.fail()
         elif element_type in ("GuiCheckBox", "GuiRadioButton"):
             if expected_value := bool(expected_value):
