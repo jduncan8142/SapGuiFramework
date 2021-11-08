@@ -1081,8 +1081,8 @@ class SalesOrder:
         self.sap.set_combobox(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\02/ssubSUBSCREEN_BODY:SAPMV45A:4302/cmbVBAK-VSBED", key=shipping_condition)
         if press_enter:
             self.sap.send_vkey(vkey="Enter")
-        self.sap.wait_for_element(id="/app/con[0]/ses[0]/wnd[1]/usr/btnSPOP-VAROPTION1")
-        self.sap.click_element(id="/app/con[0]/ses[0]/wnd[1]/usr/btnSPOP-VAROPTION1")
+        self.sap.try_and_continue("wait_for_element", "/app/con[0]/ses[0]/wnd[1]/usr/btnSPOP-VAROPTION1")
+        self.sap.try_and_continue("click_element", "/app/con[0]/ses[0]/wnd[1]/usr/btnSPOP-VAROPTION1")
     
     def update_partners(self, partner_type: str, partner_number: str, press_enter: Optional[bool] = True) -> None:
         self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\\09")
