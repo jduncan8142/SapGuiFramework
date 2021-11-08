@@ -195,6 +195,8 @@ class Gui:
         self.test_status = None
     
     def cleanup(self):
+        if self.test_status is None:
+            self.test_status = "UNKNOWN > Check the logs."
         self.documentation(f"{self.test_case_name} completed with status: {self.test_status}")
 
     def documentation(self, msg: str) -> None:
@@ -204,6 +206,9 @@ class Gui:
         self.task_status = failed()
         self.test_status = failed()
         sys.exit()
+    
+    def task_passed(self) -> None:
+        self.task_status = passed()
 
     def is_error(self) -> bool:
         if self.subrc != 0:
