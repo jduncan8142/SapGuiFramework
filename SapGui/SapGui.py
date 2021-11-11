@@ -207,7 +207,7 @@ class Gui:
                 self.test_status = "UNKNOWN > Check the logs."
         self.documentation(f"{self.test_case_name} completed with status: {self.test_status}")
         if self.failed_tasks:
-            self.documentation(f"The following tasks failed: \n{[str(x + '\n') for x in self.failed_tasks]}")
+            self.documentation(str("The following tasks failed: \n" + "\n".join([str(x) for x in self.failed_tasks]) + "\n"))
 
     def documentation(self, msg: str) -> None:
         self.task = msg
