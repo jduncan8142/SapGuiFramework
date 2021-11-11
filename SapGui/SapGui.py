@@ -201,16 +201,18 @@ class Gui:
             "GuiShell", 
             "GuiStatusPane"
             )
-        self.transaction_does_not_exist_strings = (
-            f"Transactie {self.transaction} bestaat niet", 
-            f"Transaction {self.transaction} does not exist", 
-            f"Transaktion {self.transaction} existiert nicht"
-            )
         self.task_status: str = None
         self.test_status: str = None
         self.test_case_failed: bool = False
         self.failed_tasks: list = []
         self.task: str = ""
+    
+    def transaction_does_not_exist_strings(self) -> tuple:
+        return (
+            f"Transactie {self.transaction} bestaat niet", 
+            f"Transaction {self.transaction} does not exist", 
+            f"Transaktion {self.transaction} existiert nicht"
+            )
     
     def cleanup(self):
         if self.test_status is None:
@@ -459,7 +461,7 @@ class Gui:
         self.transaction = transaction.upper()
         self.session.startTransaction(self.transaction)
         self.wait()
-        if (s_msg := str(self.sbar.findById('pane[0]').text).strip(" \n\r\t")) in self.transaction_does_not_exist_strings:
+        if (s_msg := str(self.sbar.findById('pane[0]').text).strip(" \n\r\t")) in self.transaction_does_not_exist_strings():
             self.take_screenshot(screenshot_name="start_transaction_error")
             self.logger.log.error(f"ValueError > {s_msg}")
             self.fail()
