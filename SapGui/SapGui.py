@@ -44,6 +44,15 @@ class SapLogger:
                 self._log(SCREENSHOT_LEVELV_NUM, message, args, **kws)
         logging.Logger.shot = shot
 
+        # Create custom logging level for status
+        STATUS_LEVELV_NUM = 55 
+        logging.addLevelName(STATUS_LEVELV_NUM, "STATUS")
+        def status(self, message, *args, **kws):
+            if self.isEnabledFor(STATUS_LEVELV_NUM):
+                # Yes, logger takes its '*args' as 'args'.
+                self._log(STATUS_LEVELV_NUM, message, args, **kws)
+        logging.Logger.status = status
+
         # Create custom logging level for documentation
         DOUMENTATION_LEVELV_NUM = 60 
         logging.addLevelName(DOUMENTATION_LEVELV_NUM, "DOCUMENTATION")
@@ -82,8 +91,8 @@ class SapLogger:
                 self.file_handler.setLevel(25)
                 self.stream_handler.setLevel(50)
             case _:
-                self.log.setLevel(90)
-                self.file_handler.setLevel(90)
+                self.log.setLevel(25)
+                self.file_handler.setLevel(25)
                 self.stream_handler.setLevel(90)
         self.log.addHandler(self.file_handler)
         self.log.addHandler(self.stream_handler)
