@@ -45,7 +45,7 @@ class SapLogger:
         logging.Logger.shot = shot
 
         # Create custom logging level for documentation
-        DOUMENTATION_LEVELV_NUM = 26 
+        DOUMENTATION_LEVELV_NUM = 60 
         logging.addLevelName(DOUMENTATION_LEVELV_NUM, "DOCUMENTATION")
         def documentation(self, message, *args, **kws):
             if self.isEnabledFor(DOUMENTATION_LEVELV_NUM):
@@ -62,29 +62,29 @@ class SapLogger:
         self.verbosity: int = verbosity if verbosity is not None else conf.verbosity
         match self.verbosity:
             case 5:
-                self.log.setLevel(logging.DEBUG)
-                self.file_handler.setLevel(logging.DEBUG)
-                self.stream_handler.setLevel(logging.DEBUG)
+                self.log.setLevel(10)
+                self.file_handler.setLevel(10)
+                self.stream_handler.setLevel(10)
             case 4:
-                self.log.setLevel(logging.INFO)
-                self.file_handler.setLevel(logging.INFO)
-                self.stream_handler.setLevel(logging.INFO)
+                self.log.setLevel(20)
+                self.file_handler.setLevel(20)
+                self.stream_handler.setLevel(20)
             case 3:
-                self.log.setLevel(logging.SHOT)
-                self.file_handler.setLevel(logging.SHOT)
-                self.stream_handler.setLevel(logging.WARNING)
+                self.log.setLevel(25)
+                self.file_handler.setLevel(25)
+                self.stream_handler.setLevel(30)
             case 2:
-                self.log.setLevel(logging.SHOT)
-                self.file_handler.setLevel(logging.SHOT)
-                self.stream_handler.setLevel(logging.ERROR)
+                self.log.setLevel(25)
+                self.file_handler.setLevel(25)
+                self.stream_handler.setLevel(40)
             case 1:
-                self.log.setLevel(logging.SHOT)
-                self.file_handler.setLevel(logging.SHOT)
-                self.stream_handler.setLevel(logging.CRITICAL)
+                self.log.setLevel(25)
+                self.file_handler.setLevel(25)
+                self.stream_handler.setLevel(50)
             case _:
-                self.log.setLevel(logging.NOTSET)
-                self.file_handler.setLevel(logging.NOTSET)
-                self.stream_handler.setLevel(logging.NOTSET)
+                self.log.setLevel(90)
+                self.file_handler.setLevel(90)
+                self.stream_handler.setLevel(90)
         self.log.addHandler(self.file_handler)
         self.log.addHandler(self.stream_handler)
 
