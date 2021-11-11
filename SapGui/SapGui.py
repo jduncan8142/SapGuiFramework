@@ -456,15 +456,16 @@ class Gui:
         return {"messageId": msg_id, "messageNumber": msg_number, "messageType": msg_type, "message": msg, "text": txt}
     
     def start_transaction(self, transaction: str) -> None:
-        if transaction:
-            self.transaction = transaction.upper()
-            self.session.startTransaction(self.transaction)
-            if (s_msg := str(self.sbar.findById('pane[0]').text).strip(" \n\r\t")) in self.transaction_does_not_exist_strings:
-                self.take_screenshot(screenshot_name="start_transaction_error")
-                self.logger.log.error(f"ValueError > {s_msg}")
-                self.fail()
-            else:
-                self.task_passed()
+        self.transaction = transaction.upper()
+        self.session.startTransaction(self.transaction)
+        self.wait()
+        if (s_msg := str(self.sbar.findById('pane[0]').text).strip(" \n\r\t")) in self.transaction_does_not_exist_strings:
+            self.take_screenshot(screenshot_name="start_transaction_error")
+            self.logger.log.error(f"ValueError > {s_msg}")
+            self.fail()
+        else:
+            self.logger.log.info(f"Started transaction {self.transaction} successfully > {s_msg}")
+            self.task_passed()
     
     start = start_transaction
     
