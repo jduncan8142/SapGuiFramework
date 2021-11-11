@@ -36,7 +36,7 @@ class SapLogger:
                 pass
         
         # Create custom logging level for screenshots
-        SCREENSHOT_LEVELV_NUM = 60 
+        SCREENSHOT_LEVELV_NUM = 25 
         logging.addLevelName(SCREENSHOT_LEVELV_NUM, "SHOT")
         def shot(self, message, *args, **kws):
             if self.isEnabledFor(SCREENSHOT_LEVELV_NUM):
@@ -45,7 +45,7 @@ class SapLogger:
         logging.Logger.shot = shot
 
         # Create custom logging level for documentation
-        DOUMENTATION_LEVELV_NUM = 70 
+        DOUMENTATION_LEVELV_NUM = 26 
         logging.addLevelName(DOUMENTATION_LEVELV_NUM, "DOCUMENTATION")
         def documentation(self, message, *args, **kws):
             if self.isEnabledFor(DOUMENTATION_LEVELV_NUM):
@@ -68,19 +68,19 @@ class SapLogger:
             case 4:
                 self.log.setLevel(logging.INFO)
                 self.file_handler.setLevel(logging.INFO)
-                self.stream_handler.setLevel(logging.NOTSET)
+                self.stream_handler.setLevel(logging.INFO)
             case 3:
-                self.log.setLevel(logging.WARNING)
-                self.file_handler.setLevel(logging.WARNING)
-                self.stream_handler.setLevel(logging.NOTSET)
+                self.log.setLevel(logging.SHOT)
+                self.file_handler.setLevel(logging.SHOT)
+                self.stream_handler.setLevel(logging.WARNING)
             case 2:
-                self.log.setLevel(logging.ERROR)
-                self.file_handler.setLevel(logging.ERROR)
-                self.stream_handler.setLevel(logging.NOTSET)
+                self.log.setLevel(logging.SHOT)
+                self.file_handler.setLevel(logging.SHOT)
+                self.stream_handler.setLevel(logging.ERROR)
             case 1:
-                self.log.setLevel(logging.CRITICAL)
-                self.file_handler.setLevel(logging.CRITICAL)
-                self.stream_handler.setLevel(logging.NOTSET)
+                self.log.setLevel(logging.SHOT)
+                self.file_handler.setLevel(logging.SHOT)
+                self.stream_handler.setLevel(logging.CRITICAL)
             case _:
                 self.log.setLevel(logging.NOTSET)
                 self.file_handler.setLevel(logging.NOTSET)
