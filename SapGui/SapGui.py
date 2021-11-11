@@ -191,20 +191,33 @@ class Gui:
         self.session_info: win32com.client.CDispatch = None
 
         self.text_elements = ("GuiTextField", "GuiCTextField", "GuiPasswordField", "GuiLabel", "GuiTitlebar", "GuiStatusbar", "GuiButton", "GuiTab", "GuiShell", "GuiStatusPane")
-        self.task_status = None
-        self.test_status = None
+        self.task_status: str = None
+        self.test_status: str = None
+        self.test_case_failed: bool = False
+        self.failed_tasks: list = []
+        self.task: str = ""
     
     def cleanup(self):
         if self.test_status is None:
-            self.test_status = "UNKNOWN > Check the logs."
+            if self.test_case_failed or self.test_status == failed() or self.failed_tasks:
+                self.test_status = failed()
+            elif not self.test_case_failed and self.test_status != failed() and not self.failed_tasks:
+                self.test_status = passed()
+            else:
+                self.test_status = "UNKNOWN > Check the logs."
         self.documentation(f"{self.test_case_name} completed with status: {self.test_status}")
+        if self.failed_tasks:
+            self.documentation(f"The following tasks failed: \n{[str(x + '\n') for x in self.failed_tasks]}")
 
     def documentation(self, msg: str) -> None:
-        self.logger.log.documentation(msg)
+        self.task = msg
+        self.logger.log.documentation(self.task)
     
     def fail(self, exit_on_error: Optional[bool] = True) -> None:
         self.task_status = failed()
+        self.failed_tasks.append(self.task)
         self.test_status = failed()
+        self.test_case_failed = True
         if exit:
             sys.exit()
     
@@ -920,7 +933,6 @@ class Gui:
                 result = func(*args, **kwargs)
         except Exception:
             pass
-        self.task_passed()
         return result
     
     def get_next_empty_table_row(self, table_id: str, column_index: Optional[int] = 0) -> None:
