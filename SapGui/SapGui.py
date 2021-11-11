@@ -189,8 +189,23 @@ class Gui:
         self.transaction: str = None
         self.sbar: win32com.client.CDispatch = None
         self.session_info: win32com.client.CDispatch = None
-
-        self.text_elements = ("GuiTextField", "GuiCTextField", "GuiPasswordField", "GuiLabel", "GuiTitlebar", "GuiStatusbar", "GuiButton", "GuiTab", "GuiShell", "GuiStatusPane")
+        self.text_elements = (
+            "GuiTextField", 
+            "GuiCTextField", 
+            "GuiPasswordField", 
+            "GuiLabel", 
+            "GuiTitlebar", 
+            "GuiStatusbar", 
+            "GuiButton", 
+            "GuiTab", 
+            "GuiShell", 
+            "GuiStatusPane"
+            )
+        self.transaction_does_not_exist_strings = (
+            f"Transactie {self.transaction} bestaat niet", 
+            f"Transaction {self.transaction} does not exist", 
+            f"Transaktion {self.transaction} existiert nicht"
+            )
         self.task_status: str = None
         self.test_status: str = None
         self.test_case_failed: bool = False
@@ -409,10 +424,8 @@ class Gui:
     def get_statusbar_if_error(self, exit_on_error: Optional[bool] = True) -> str:
         try:
             if self.sbar.messageType == "E":
-                self.task_passed()
                 return f"{self.sbar.findById('pane[0]').text} -> Message no. {self.sbar.messageId.strip('')}:{self.sbar.messageNumber}"
             else:
-                self.task_passed()
                 return ""
         except:
             self.take_screenshot(screenshot_name="get_statusbar_if_error_error.jpg")
@@ -446,11 +459,12 @@ class Gui:
         if transaction:
             self.transaction = transaction.upper()
             self.session.startTransaction(self.transaction)
-            if self.get_statusbar_if_error() in (f"Transactie {self.transaction} bestaat niet", f"Transaction {self.transaction} does not exist", f"Transaktion {self.transaction} existiert nicht"):
-                self.take_screenshot(screenshot_name="start_transaction_error.jpg")
-                self.logger.log.error(f"ValueError > Unknown transaction: {self.transaction}")
+            if (s_msg := str(self.sbar.findById('pane[0]').text).strip(" \n\r\t")) in self.transaction_does_not_exist_strings:
+                self.take_screenshot(screenshot_name="start_transaction_error")
+                self.logger.log.error(f"ValueError > {s_msg}")
                 self.fail()
-        self.task_passed()
+            else:
+                self.task_passed()
     
     start = start_transaction
     
