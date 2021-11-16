@@ -10,8 +10,14 @@ import random
 import logging
 import base64
 import atexit
+from lxml import objectify
 from typing import Optional, Any
 from mss import mss
+
+try:
+    import log_conf as conf
+except ModuleNotFoundError:
+    from . import log_conf as conf
 
 
 def failed():
@@ -22,9 +28,51 @@ def passed():
     return "PASS"
 
 
+class SapLogon:
+    def __init__(self) -> None:
+        self.logger = SapLogger(log_name="SAPLogon")
+        self.config_file = None
+        self.xml_string = None
+        self.xml_config = None
+        self.remote_xml_config = None
+        self.urls = []
+        self.services_names = []
+        self.get_config()
+
+    def get_config(self) -> None:
+        try:
+            app_data = os.path.expandvars(r'%APPDATA%')
+            if os.path.isfile(os.path.join(app_data, "SAP/Common/SAPUILandscape.xml")):
+                self.config_file = os.path.abspath(os.path.join(app_data, "SAP/Common/SAPUILandscape.xml"))
+            try:
+                self.parse_xml_config()
+            except Exception as err2:
+                self.logger.log.error(err2)
+            try:
+                self.read_remote_config()
+            except Exception as err2:
+                self.logger.log.error(err2)
+        except Exception as err:
+            self.logger.log.error(err)
+    
+    def parse_xml_config(self) -> None:
+        with open(self.config_file, "r") as f:
+            self.xml_string = f.read()
+            self.xml_config = objectify.fromstring(self.xml_string)
+            self.urls.append(self.xml_config.Includes.Include.attrib['url'])
+    
+    def read_remote_config(self) -> None:
+        for url in self.urls:
+            url = url.split(":")[1]
+            with open(url, "rb") as f:
+                _xml_string = f.read()
+                self.remote_xml_config = objectify.fromstring(_xml_string)
+                for service in self.remote_xml_config.Services.getchildren():
+                    self.services_names.append(service.attrib['name'])
+
+
 class SapLogger:
     def __init__(self, log_name: Optional[str] = None, log_path: Optional[str] = None, verbosity: Optional[int] = None) -> None:
-        import log_conf as conf
         self.enabled: bool = conf.enable
         self.log_name: str = log_name if log_name is not None else conf.name
         self.log_path: str = log_path if log_path is not None else conf.path
