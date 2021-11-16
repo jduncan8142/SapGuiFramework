@@ -69,6 +69,25 @@ class SapLogon:
                 self.remote_xml_config = objectify.fromstring(_xml_string)
                 for service in self.remote_xml_config.Services.getchildren():
                     self.services_names.append(service.attrib['name'])
+    
+    def sap_logon_pad(self) -> str:
+        import PySimpleGUI as sg
+        layout = [[sg.Listbox(values=self.services_names, size=(30, 6), enable_events=True, bind_return_key=True)]]
+        window = sg.Window('Select SAP System', layout)
+        while True:
+            event, values = window.read()
+            if event == sg.WIN_CLOSED or event == 'Cancel':
+                break
+            else:
+                window.close()
+                if len(values) == 1:
+                    v = values[0]
+                    if len(v) == 1:
+                        return v[0]
+                    else:
+                        return v
+                else:
+                    return values
 
 
 class SapLogger:
