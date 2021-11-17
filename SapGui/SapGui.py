@@ -848,7 +848,7 @@ class Gui:
     
     text = input_text
 
-    def string_generator(size: int = 6, chars: str = string.ascii_uppercase + string.digits):
+    def string_generator(size: Optional[int]=6, chars: str=string.ascii_uppercase + string.digits) -> str:
         return ''.join(str(random.choice(chars)) for _ in range(size))
 
     def input_random_value(self, id: str, text: str, prefix: bool = False, suffix: bool = False, date_time: bool = False, random: bool = False) -> str:
