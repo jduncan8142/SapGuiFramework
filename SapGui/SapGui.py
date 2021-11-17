@@ -359,7 +359,7 @@ class Gui:
         self.failed_tasks.append(self.task)
         self.test_status = failed()
         self.test_case_failed = True
-        if exit:
+        if exit_on_error:
             sys.exit()
     
     def task_passed(self) -> None:
@@ -550,9 +550,9 @@ class Gui:
         while not self.is_element(element=id) and t.elapsed() <= timeout:
             self.wait(value=1.0)
         if not self.is_element(element=id):
-            self.take_screenshot(screenshot_name="wait_for_element_error.jpg")
+            self.take_screenshot(screenshot_name="wait_for_element_error")
             self.logger.log.error(f"Wait For Element could not find element with id {id}")
-            self.fail(exit_on_error)
+            self.fail(exit_on_error=exit_on_error)
         self.task_passed()
     
     def get_statusbar_if_error(self, exit_on_error: Optional[bool] = True) -> str:
@@ -562,7 +562,7 @@ class Gui:
             else:
                 return ""
         except:
-            self.take_screenshot(screenshot_name="get_statusbar_if_error_error.jpg")
+            self.take_screenshot(screenshot_name="get_statusbar_if_error_error")
             self.logger.log.error(f"Error while checking if statusbar had error msg.")
             self.fail(exit_on_error)
     
