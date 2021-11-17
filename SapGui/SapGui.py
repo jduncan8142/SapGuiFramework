@@ -812,7 +812,7 @@ class Gui:
             self.logger.log.error(f"Cannot find window with locator {id} -> {err}")
             self.fail()
 
-    def get_value(self, id: str) -> str | bool:
+    def get_value(self, id: str, exit_on_error: Optional[bool] = True) -> Any:
         try:
             _value = None
             if (element_type := self.get_element_type(id)) in self.text_elements:
@@ -828,11 +828,11 @@ class Gui:
                 self.task_passed()
                 return _value
             else:
-                self.fail()
+                return None
         except Exception as err:
             self.take_screenshot(screenshot_name="get_value_error.jpg")
             self.logger.log.error(f"Cannot get value for element type {element_type} for id {id} -> {err}")
-            self.fail()
+            self.fail(exit_on_error=exit_on_error)
 
     def input_text(self, id: str, text: str) -> None:
         if (element_type := self.get_element_type(id)) in self.text_elements:
