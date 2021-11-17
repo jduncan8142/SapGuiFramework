@@ -614,20 +614,23 @@ class Gui:
             self.session.sendCommand(command)
             self.task_passed()
         except Exception as err:
-            self.take_screenshot(screenshot_name="send_command_error.jpg")
+            self.take_screenshot(screenshot_name="send_command_error")
             self.logger.log.error(f"Error sending command {command} -> {err}")
             self.fail()
 
     def click_element(self, id: str = None) -> None:
-        if (element_type := self.get_element_type(id)) in ("GuiTab", "GuiMenu"):
-            self.session.findById(id).select()
-        elif element_type == "GuiButton":
-            self.session.findById(id).press()
-        else:
-            self.take_screenshot(screenshot_name="click_element_error.jpg")
-            self.logger.log.error(f"You cannot use 'Click Element' on element id type {id}")
-        self.wait()
-        self.task_passed()
+        try:
+            if (element_type := self.get_element_type(id)) in ("GuiTab", "GuiMenu"):
+                self.session.findById(id).select()
+                self.task_passed()
+                self.wait()
+            elif element_type == "GuiButton":
+                self.session.findById(id).press()
+                self.task_passed()
+                self.wait()
+        except Exception as err:
+            self.take_screenshot(screenshot_name="click_element_error")
+            self.logger.log.error(f"You cannot use 'Click Element' on element id type {id} > {err}")
     
     click = click_element
 
@@ -638,7 +641,7 @@ class Gui:
         except AttributeError:
             self.session.findById(table_id).pressButton(button_id)
         except Exception as err:
-            self.take_screenshot(screenshot_name="click_toolbar_button_error.jpg")
+            self.take_screenshot(screenshot_name="click_toolbar_button_error")
             self.logger.log.error(f"Cannot find Table ID/Button ID: {' / '.join([table_id, button_id])}  <-->  {err}")
             self.fail()
         self.wait()
@@ -648,7 +651,7 @@ class Gui:
         if (element_type := self.get_element_type(id)) == "GuiShell":
             self.session.findById(id).doubleClickItem(item_id, column_id)
         else:
-            self.take_screenshot(screenshot_name="doubleclick_element_error.jpg")
+            self.take_screenshot(screenshot_name="doubleclick_element_error")
             self.logger.log.error(f"You cannot use 'doubleclick element' on element type {element_type}")
             self.fail()
         self.wait()
@@ -656,7 +659,7 @@ class Gui:
 
     def assert_element_present(self, id: str, message: Optional[str] = None) -> None:
         if not self.is_element(element=id):
-            self.take_screenshot(screenshot_name="assert_element_present_error.jpg")
+            self.take_screenshot(screenshot_name="assert_element_present_error")
             self.logger.log.error(message if message is not None else f"Cannot find element {id}")
             self.fail()
         self.task_passed()
@@ -676,16 +679,16 @@ class Gui:
         elif element_type in ("GuiCheckBox", "GuiRadioButton"):
             if expected_value := bool(expected_value):
                 if not actual_value:
-                    self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
+                    self.take_screenshot(screenshot_name=f"{element_type}_error")
                     self.logger.log.error(f"AssertEqualError > Element value of {id} should be {expected_value}, but was {actual_value}")
                     self.fail()
             elif not expected_value:
                 if actual_value:
-                    self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
+                    self.take_screenshot(screenshot_name=f"{element_type}_error")
                     self.logger.log.error(f"AssertEqualError > Element value of {id} should be {expected_value}, but was {actual_value}")
                     self.fail()
         else:
-            self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
+            self.take_screenshot(screenshot_name=f"{element_type}_error")
             self.logger.log.error(f"AssertEqualError > Element value of {id} should be {expected_value}, but was {actual_value}")
             self.fail()
     
@@ -700,22 +703,22 @@ class Gui:
         if (element_type := self.get_element_type(id)) in self.text_elements:
             if expected_value == actual_value:
                 message = message if message is not None else f"Element value of {id} should not be equal to {expected_value}"
-                self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
+                self.take_screenshot(screenshot_name=f"{element_type}_error")
                 self.logger.log.error(f"AssertNotEqualError > Element value of {id} should not be equal to {expected_value}")
                 self.fail()
         elif element_type in ("GuiCheckBox", "GuiRadioButton"):
             if expected_value := bool(expected_value):
                 if not actual_value:
-                    self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
+                    self.take_screenshot(screenshot_name=f"{element_type}_error")
                     self.logger.log.error(f"AssertNotEqualError > Element value of {id} should not be equal to {expected_value}")
                     self.fail()
             elif not expected_value:
                 if actual_value:
-                    self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
+                    self.take_screenshot(screenshot_name=f"{element_type}_error")
                     self.logger.log.error(f"AssertNotEqualError > Element value of {id} should not be equal to {expected_value}")
                     self.fail()
         else:
-            self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
+            self.take_screenshot(screenshot_name=f"{element_type}_error")
             self.logger.log.error(f"AssertNotEqualError > Element value of {id} should not be equal to {expected_value}")
             self.fail()
 
@@ -728,7 +731,7 @@ class Gui:
         if (element_type := self.get_element_type(id)) in self.text_elements:
             if expected_value != actual_value:
                 message = message if message is not None else f"Element value of {id} does not contain {expected_value} but was {actual_value}"
-                self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
+                self.take_screenshot(screenshot_name=f"{element_type}_error")
                 self.logger.log.error(f"AssertContainsError > {message}")
                 self.fail()
         else:
@@ -1043,7 +1046,6 @@ class Gui:
             self.take_screenshot(screenshot_name="select_radio_button_error")
             self.logger.log.error(f"Cannot use keyword Select Radio Button with element type {element_type}")
             self.fail()
-        
 
     def select_table_column(self, table_id: str, column_id: str) -> None:
         if self.is_element(element=table_id):
@@ -1055,7 +1057,6 @@ class Gui:
                 self.take_screenshot(screenshot_name="select_table_column_error")
                 self.logger.log.error(f"Cannot find column ID: {column_id} for table {table_id}")
                 self.fail()
-            
 
     def select_table_row(self, table_id: str, row_num: int) -> None:
         if (element_type := self.get_element_type(table_id)) == "GuiTableControl":
@@ -1072,8 +1073,7 @@ class Gui:
                 self.take_screenshot(screenshot_name="select_table_row_error")
                 self.logger.log.error(f"Cannot use keyword Select Table Row for element type {element_type} -> {err}")
                 self.fail()
-        
-    
+
     def try_and_continue(self, func_name: str, *args, **kwargs) -> Any:
         result = None
         self.wait(1.0)
