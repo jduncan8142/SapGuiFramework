@@ -626,7 +626,6 @@ class Gui:
         else:
             self.take_screenshot(screenshot_name="click_element_error.jpg")
             self.logger.log.error(f"You cannot use 'Click Element' on element id type {id}")
-            self.fail()
         self.wait()
         self.task_passed()
     
