@@ -411,6 +411,13 @@ class Gui:
             self.logger.log.error(f"Unknown element id: {id} -> {err}")
             return None
     
+    def get_focused_element(self, id: str, name: str, type: str) -> str:
+        parent = self.session.findById(id)
+        elements = parent.findAllByName(name, type)
+        for element in elements:
+            if element.text == "": 
+                element.SetFocus()
+    
     def pad(self, value: str, length: int, char: Optional[str] = "0", right: Optional[bool] = False) -> str:
         if right:
             tmp = value.split(".")
