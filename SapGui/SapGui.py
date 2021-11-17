@@ -193,7 +193,7 @@ class Screenshot:
                 raise FileNotFoundError(f"Directory {__dir} does not exist and was unable to be created automatically. Make sure you have the required access.")
         self.__directory = __dir
     
-    def shot(self, monitor: Optional[int] = None, output: Optional[str] = None, name: Optional[str] = None) -> list:
+    def shot(self, monitor: Optional[int] = None, output: Optional[str] = None, name: Optional[str] = None, delay: Optional[float]= 2.0) -> list:
         if monitor:
             self.monitor(value=monitor)
         if output:
@@ -201,6 +201,7 @@ class Screenshot:
         else:
             if not self.__directory:
                 self.screenshot_directory = "output"
+        time.sleep(delay)
         __name = f"{name}.jpg" if name is not None else f"screenshot_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.jpg"
         return [x for x in self.sct.save(mon=self.__monitor, output=os.path.join(self.__directory, __name))]
 
