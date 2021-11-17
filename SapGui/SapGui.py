@@ -66,13 +66,12 @@ class WindowHandler:
         win32gui.EnumWindows(self.winEnumHandler, None)
     
     def close_window(self) -> None:
+        self.window_handle = None
         for win in self.window_handle_list:
             if self.window_description == win[1]:
                 self.window_handle = win[0]
             elif self.window_description in win[1]:
-                self.window_handle = win[0]
-            else:
-                self.window_handle = None
+                self.window_handle = win[0] 
         if self.window_handle is not None:
             win32gui.PostMessage(self.window_handle, win32con.WM_CLOSE, 0, 0)
 
