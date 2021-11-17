@@ -848,7 +848,7 @@ class Gui:
     
     text = input_text
 
-    def string_generator(size: Optional[int]=6, chars: Optional[str]=string.ascii_uppercase + string.digits) -> str:
+    def string_generator(self, size: Optional[int]=6, chars: Optional[str]=string.ascii_uppercase + string.digits) -> str:
         selected_chars = []
         for i in range(size):
             selected_chars.append(random.choice(chars))
