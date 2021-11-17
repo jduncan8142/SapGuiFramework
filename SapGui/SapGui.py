@@ -768,6 +768,7 @@ class Gui:
                 self.logger.log.error(f"Cannot get value for element type {element_type} for id {id}")
             if _value:
                 self.task_passed()
+                return _value
             else:
                 self.fail()
         except Exception as err:
