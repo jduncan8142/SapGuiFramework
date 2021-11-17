@@ -417,6 +417,7 @@ class Gui:
         for element in elements:
             if element.text == "": 
                 element.SetFocus()
+                return element.id
     
     def pad(self, value: str, length: int, char: Optional[str] = "0", right: Optional[bool] = False) -> str:
         if right:
