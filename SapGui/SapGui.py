@@ -1126,6 +1126,9 @@ class Gui:
     
     def save(self) -> None:
         self.send_vkey(vkey="CTRL+S")
+    
+    def back(self) -> None:
+        self.send_vkey(vkey="F3")
 
 
 class SalesOrder:
