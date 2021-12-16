@@ -79,7 +79,7 @@ class Screenshot:
     
     @screenshot_directory.setter
     def screenshot_directory(self, value: str) -> None:
-        __dir: str = os.path.join(os.getcwd(), value) 
+        __dir: str = os.path.join(get_main_dir(), value) 
         if not os.path.exists(__dir):
             try:
                 os.mkdir(__dir)
