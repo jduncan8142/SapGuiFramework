@@ -18,7 +18,7 @@ class Logger:
             self.log_name = "MyLogs"
 
         self.log_path: str = log_path
-        if log_path is None:
+        if self.log_path is None:
             self.log_path = os.path.join(get_main_dir(), "logs")
         if not os.path.isdir(self.log_path):
             os.mkdir(self.log_path)
