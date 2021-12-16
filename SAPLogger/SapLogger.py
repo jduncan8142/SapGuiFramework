@@ -6,7 +6,8 @@ from Utilities.Utilities import get_main_dir
 
 class Logger:
     def __init__(
-            self, log_name: Optional[str] = None, 
+            self, 
+            log_name: Optional[str] = None, 
             log_path: Optional[str] = None, 
             log_file: Optional[str] = None, 
             verbosity: Optional[int] = None, 
@@ -15,17 +16,20 @@ class Logger:
         self.log_name: str = log_name
         if self.log_name is None:
             self.log_name = "MyLogs"
+
         self.log_path: str = log_path
         if log_path is None:
             self.log_path = os.path.join(get_main_dir(), "logs")
+        if not os.path.isdir(self.log_path):
+            os.mkdir(self.log_path)
+
         self.log_file: str = log_file 
         if self.log_file is None:
             os.path.join(self.log_path, f"{self.log_name}.log")
-        if not os.path.isdir(self.log_path):
-            os.mkdir(self.log_path)
         if not os.path.isfile(self.log_file):
             with open(self.log_file, "w") as f:
                 pass
+
         self.verbosity: int = verbosity
         if self.verbosity is None:
             self.verbosity = 4

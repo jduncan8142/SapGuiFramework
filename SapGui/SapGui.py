@@ -99,7 +99,7 @@ class Gui:
             f"Transaction {self.transaction} does not exist", 
             f"Transaktion {self.transaction} existiert nicht")
     
-    def cleanup(self):
+    def cleanup(self) -> None:
         if self.test_status is None:
             if self.test_case_failed or self.test_status == FAIL or len(self.failed_tasks) > 0:
                 self.test_status = FAIL
