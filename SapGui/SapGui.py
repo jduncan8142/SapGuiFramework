@@ -219,7 +219,7 @@ class Gui:
         """
         _tmp = None
         if is_task:
-            self.task()
+            self.task
         try:
             _tmp = self.session.findById(id).type
             if is_task:
@@ -250,7 +250,7 @@ class Gui:
             ConnectionError: Unable to get session information
         """
         if is_task:
-            self.task()
+            self.task
         try:
             self.sap_gui = win32com.client.GetObject("SAPGUI")
             if not type(self.sap_gui) == win32com.client.CDispatch:
@@ -318,7 +318,7 @@ class Gui:
             is_task {Optional[bool]} -- If the current function call is a task called by the user (default: {True})
         """
         if is_task:
-            self.task()
+            self.task
         if connection_name:
             self.connection_name = connection_name
         try:
@@ -351,7 +351,7 @@ class Gui:
             is_task {Optional[bool]} -- If the current function call is a task called by the user (default: {True})
         """
         if is_task:
-            self.task()
+            self.task
         if not hasattr(self.sap_app, "OpenConnection"):
             try:
                 self.sap_gui = win32com.client.GetObject("SAPGUI")
@@ -410,7 +410,7 @@ class Gui:
     
     def assert_success_status(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
         if is_task:
-            self.task()
+            self.task
         try:
             smd = self.get_status_msg_dict()
             if smd['messageType'] == "S":
@@ -436,7 +436,7 @@ class Gui:
             is_task {Optional[bool]} -- If the current function call is a task called by the user (default: {True})
         """
         if is_task:
-            self.task()
+            self.task
         try:
             self.connection.closeSession(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]")
             self.connection.closeConnection()
@@ -460,7 +460,7 @@ class Gui:
             is_task {Optional[bool]} -- If the current function call is a task called by the user (default: {True})
         """
         if is_task:
-            self.task()
+            self.task
         try:
             self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]").maximize()
             self.task_passed(msg="Maximize of SAP window successful", ss_name="maximize_window")
@@ -487,7 +487,7 @@ class Gui:
             is_task {Optional[bool]} -- If the current function call is a task called by the user (default: {True})
         """
         if is_task:
-            self.task()
+            self.task
         try:
             self.connection_name = connection_name if connection_name is not None else self.connection_name
             self.exit()
@@ -518,7 +518,7 @@ class Gui:
             is_task {Optional[bool]} -- If the current function call is a task called by the user (default: {True})
         """
         if is_task:
-            self.task()
+            self.task
         t = Timer()
         while not self.is_element(element=id) and t.elapsed() <= timeout:
             self.wait(value=0.5)
@@ -542,7 +542,7 @@ class Gui:
         """
         _tmp = None
         if is_task:
-            self.task()
+            self.task
         try:
             if self.sbar.messageType == "E":
                 _tmp = f"{self.sbar.findById('pane[0]').text} -> Message no. {self.sbar.messageId.strip('')}:{self.sbar.messageNumber}"
@@ -559,7 +559,7 @@ class Gui:
         return _tmp
 
     def start_transaction(self, transaction: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
-        if is_task: self.task()
+        if is_task: self.task
         try:
             self.transaction = transaction.upper()
             self.session.startTransaction(self.transaction)
@@ -586,7 +586,7 @@ class Gui:
     START: FunctionType = start_transaction
     
     def end_transaction(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
-        if is_task: self.task()
+        if is_task: self.task
         try:
             self.session.endTransaction()
             self.task_passed()
