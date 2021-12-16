@@ -34,16 +34,12 @@ def assert_string_has_numeric(text: str, len_value: Optional[int] = None) -> boo
 def main_is_frozen() -> bool:
     return (hasattr(sys, "frozen") or # new py2exe
         hasattr(sys, "importers")) # old py2exe
-    
-
-def is_notebook() -> bool:
-    return hasattr(__builtins__,'__IPYTHON__')
 
 
 def get_main_dir() -> str:
     if main_is_frozen():
         return os.path.dirname(sys.executable)
-    elif is_notebook():
+    elif hasattr(__builtins__,'__IPYTHON__'):
         return os.getcwd()
     else:
         return os.path.dirname(sys.argv[0])
@@ -101,7 +97,7 @@ class Screenshot:
             self.screenshot_directory(value=output)
         else:
             if not self.__directory:
-                self.screenshot_directory = "output"
+                self.screenshot_directory = "screenshots"
         time.sleep(delay)
         __name = f"{name}.jpg" if name is not None else f"screenshot_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.jpg"
         return [x for x in self.sct.save(mon=self.__monitor, output=os.path.join(self.__directory, __name))]
