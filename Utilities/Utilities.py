@@ -32,14 +32,21 @@ def assert_string_has_numeric(text: str, len_value: Optional[int] = None) -> boo
 
 
 def main_is_frozen() -> bool:
-   return (hasattr(sys, "frozen") or # new py2exe
-           hasattr(sys, "importers")) # old py2exe
+    return (hasattr(sys, "frozen") or # new py2exe
+        hasattr(sys, "importers")) # old py2exe
+    
+
+def is_notebook() -> bool:
+    return hasattr(__builtins__,'__IPYTHON__')
 
 
 def get_main_dir() -> str:
-   if main_is_frozen():
-       return os.path.dirname(sys.executable)
-   return os.path.dirname(sys.argv[0])
+    if main_is_frozen():
+        return os.path.dirname(sys.executable)
+    elif is_notebook():
+        return os.getcwd()
+    else:
+        return os.path.dirname(sys.argv[0])
 
 
 def parent_func() -> str:
