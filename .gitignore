@@ -131,3 +131,6 @@ dmypy.json
 # Test Directory
 /tests
 /test
+
+# My Custom Ignores
+*.ipynb

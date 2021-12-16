@@ -1,267 +1,15 @@
+from types import FunctionType
 import win32com.client
-import time
 import re
-import os
-import sys
-import datetime
-import time
 import string
 import random
-import logging
 import base64
 import atexit
-from lxml import objectify
-from typing import Optional, Any
-from mss import mss
-import win32gui
-import win32con
-
-try:
-    import log_conf as conf
-except ModuleNotFoundError:
-    from . import log_conf as conf
-
-
-def failed():
-    return "FAIL"
-
-
-def passed():
-    return "PASS"
-
-
-class WindowHandler:
-    def __init__(self, window_description: Optional[str] = None) -> None:
-        self.window_handle_list = []
-        self.window_handle: str = None
-        self.window_description: str = window_description if window_description is not None else ""
-        if len(self.window_handle_list) == 0:
-            self.gather_window_list()
-    
-    def winEnumHandler(self, hwnd: str, ctx: Any) -> None:
-        if win32gui.IsWindowVisible(hwnd):
-            self.window_handle_list.append((hwnd, win32gui.GetWindowText(hwnd)))
-    
-    def window_list_display(self, window_list: Optional[list] = None) -> None:
-        _win_list = window_list if window_list is not None else self.window_handle_list
-        import PySimpleGUI as sg
-        layout = [[sg.Listbox(values=_win_list, size=(30, 6), enable_events=True, bind_return_key=True)]]
-        window = sg.Window('Select Window', layout)
-        while True:
-            event, values = window.read()
-            if event == sg.WIN_CLOSED or event == 'Cancel':
-                break
-            else:
-                window.close()
-                if len(values) == 1:
-                    v = values[0]
-                    if len(v) == 1:
-                        return v[0]
-                    else:
-                        return v
-                else:
-                    return values
-    
-    def gather_window_list(self) -> None:
-        win32gui.EnumWindows(self.winEnumHandler, None)
-    
-    def close_window(self) -> None:
-        self.window_handle = None
-        for win in self.window_handle_list:
-            if self.window_description == win[1]:
-                self.window_handle = win[0]
-            elif self.window_description in win[1]:
-                self.window_handle = win[0] 
-        if self.window_handle is not None:
-            win32gui.PostMessage(self.window_handle, win32con.WM_CLOSE, 0, 0)
-
-class SapLogon:
-    def __init__(self) -> None:
-        self.logger = SapLogger(log_name="SAPLogon")
-        self.config_file = None
-        self.xml_string = None
-        self.xml_config = None
-        self.remote_xml_config = None
-        self.urls = []
-        self.services_names = []
-        self.get_config()
-
-    def get_config(self) -> None:
-        try:
-            app_data = os.path.expandvars(r'%APPDATA%')
-            if os.path.isfile(os.path.join(app_data, "SAP/Common/SAPUILandscape.xml")):
-                self.config_file = os.path.abspath(os.path.join(app_data, "SAP/Common/SAPUILandscape.xml"))
-            try:
-                self.parse_xml_config()
-            except Exception as err2:
-                self.logger.log.error(err2)
-            try:
-                self.read_remote_config()
-            except Exception as err2:
-                self.logger.log.error(err2)
-        except Exception as err:
-            self.logger.log.error(err)
-    
-    def parse_xml_config(self) -> None:
-        with open(self.config_file, "r") as f:
-            self.xml_string = f.read()
-            self.xml_config = objectify.fromstring(self.xml_string)
-            self.urls.append(self.xml_config.Includes.Include.attrib['url'])
-    
-    def read_remote_config(self) -> None:
-        for url in self.urls:
-            url = url.split(":")[1]
-            with open(url, "rb") as f:
-                _xml_string = f.read()
-                self.remote_xml_config = objectify.fromstring(_xml_string)
-                for service in self.remote_xml_config.Services.getchildren():
-                    self.services_names.append(service.attrib['name'])
-    
-    def sap_logon_pad(self) -> str:
-        import PySimpleGUI as sg
-        layout = [[sg.Listbox(values=self.services_names, size=(30, 6), enable_events=True, bind_return_key=True)]]
-        window = sg.Window('Select SAP System', layout)
-        while True:
-            event, values = window.read()
-            if event == sg.WIN_CLOSED or event == 'Cancel':
-                break
-            else:
-                window.close()
-                if len(values) == 1:
-                    v = values[0]
-                    if len(v) == 1:
-                        return v[0]
-                    else:
-                        return v
-                else:
-                    return values
-
-
-class SapLogger:
-    def __init__(self, log_name: Optional[str] = None, log_path: Optional[str] = None, verbosity: Optional[int] = None) -> None:
-        self.enabled: bool = conf.enable
-        self.log_name: str = log_name if log_name is not None else conf.name
-        self.log_path: str = log_path if log_path is not None else conf.path
-        self.log_file: str = os.path.join(self.log_path, f"{self.log_name}.log")
-        if not os.path.isdir(self.log_path):
-            os.mkdir(self.log_path)
-        if not os.path.isfile(self.log_file):
-            with open(self.log_file, "w") as f:
-                pass
-        
-        # Create custom logging level for screenshots
-        SCREENSHOT_LEVELV_NUM = 25 
-        logging.addLevelName(SCREENSHOT_LEVELV_NUM, "SHOT")
-        def shot(self, message, *args, **kws):
-            if self.isEnabledFor(SCREENSHOT_LEVELV_NUM):
-                # Yes, logger takes its '*args' as 'args'.
-                self._log(SCREENSHOT_LEVELV_NUM, message, args, **kws)
-        logging.Logger.shot = shot
-
-        # Create custom logging level for status
-        STATUS_LEVELV_NUM = 55 
-        logging.addLevelName(STATUS_LEVELV_NUM, "STATUS")
-        def status(self, message, *args, **kws):
-            if self.isEnabledFor(STATUS_LEVELV_NUM):
-                # Yes, logger takes its '*args' as 'args'.
-                self._log(STATUS_LEVELV_NUM, message, args, **kws)
-        logging.Logger.status = status
-
-        # Create custom logging level for documentation
-        DOUMENTATION_LEVELV_NUM = 60 
-        logging.addLevelName(DOUMENTATION_LEVELV_NUM, "DOCUMENTATION")
-        def documentation(self, message, *args, **kws):
-            if self.isEnabledFor(DOUMENTATION_LEVELV_NUM):
-                # Yes, logger takes its '*args' as 'args'.
-                self._log(DOUMENTATION_LEVELV_NUM, message, args, **kws)
-        logging.Logger.documentation = documentation
-
-        self.log: logging.Logger = logging.getLogger(self.log_file)
-        self.formatter: logging.Formatter = logging.Formatter(conf.format)
-        self.file_handler: logging.FileHandler = logging.FileHandler(self.log_file, mode=conf.file_mode)
-        self.file_handler.setFormatter(self.formatter)
-        self.stream_handler: logging.StreamHandler = logging.StreamHandler()
-        self.stream_handler.setFormatter(self.formatter)
-        self.verbosity: int = verbosity if verbosity is not None else conf.verbosity
-        match self.verbosity:
-            case 5:
-                self.log.setLevel(10)
-                self.file_handler.setLevel(10)
-                self.stream_handler.setLevel(10)
-            case 4:
-                self.log.setLevel(20)
-                self.file_handler.setLevel(20)
-                self.stream_handler.setLevel(20)
-            case 3:
-                self.log.setLevel(25)
-                self.file_handler.setLevel(25)
-                self.stream_handler.setLevel(30)
-            case 2:
-                self.log.setLevel(25)
-                self.file_handler.setLevel(25)
-                self.stream_handler.setLevel(40)
-            case 1:
-                self.log.setLevel(25)
-                self.file_handler.setLevel(25)
-                self.stream_handler.setLevel(50)
-            case _:
-                self.log.setLevel(25)
-                self.file_handler.setLevel(25)
-                self.stream_handler.setLevel(90)
-        self.log.addHandler(self.file_handler)
-        self.log.addHandler(self.stream_handler)
-
-
-class Screenshot:
-    def __init__(self) -> None:
-        self.sct = mss()
-        self.__directory: str = None
-        self.__monitor: dict[str, int] = None
-    
-    @property
-    def monitor(self) -> dict[str, int]:
-        return self.__monitor
-    
-    @monitor.setter
-    def monitor(self, value: int) -> None:
-        self.__monitor = int(value)
-    
-    @property
-    def screenshot_directory(self) -> str:
-        return self.__directory
-    
-    @screenshot_directory.setter
-    def screenshot_directory(self, value: str) -> None:
-        __dir: str = os.path.join(os.getcwd(), value) 
-        if not os.path.exists(__dir):
-            try:
-                os.mkdir(__dir)
-            except Exception as err:
-                raise FileNotFoundError(f"Directory {__dir} does not exist and was unable to be created automatically. Make sure you have the required access.")
-        self.__directory = __dir
-    
-    def shot(self, monitor: Optional[int] = None, output: Optional[str] = None, name: Optional[str] = None, delay: Optional[float]= 2.0) -> list:
-        if monitor:
-            self.monitor(value=monitor)
-        if output:
-            self.screenshot_directory(value=output)
-        else:
-            if not self.__directory:
-                self.screenshot_directory = "output"
-        time.sleep(delay)
-        __name = f"{name}.jpg" if name is not None else f"screenshot_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.jpg"
-        return [x for x in self.sct.save(mon=self.__monitor, output=os.path.join(self.__directory, __name))]
-
-
-class Timer:
-    """
-    A basic timer to user when waiting for element to be displayed. 
-    """
-    def __init__(self) -> None:
-        self.start_time = time.time()
-
-    def elapsed(self) -> float:
-        return time.time() - self.start_time
+import json
+from typing import Optional
+from Utilities.Utilities import *
+from SAPLogger.SapLogger import Logger
+from SapObject.SapObject import SapObject
 
 
 class Gui:
@@ -271,43 +19,55 @@ class Gui:
      for interaction with the desktop client application.
     """
 
-    __version__ = '0.0.7'
+    __version__ = '0.0.9'
 
     def __init__(
         self, 
-        test_case: Optional[str] = "Default Test Case",
-        log_path: Optional[str] = "output",
-        verbosity: Optional[int] = 2,  
-        screenshot_dir: Optional[str] = "output", 
-        monitor: Optional[int] = 1, 
+        test_case: Optional[str] = "My Test Case",
+        exit_on_error: Optional[bool] = True, 
+        screenshot_on_fail: Optional[bool] = True, 
+        screenshot_on_pass: Optional[bool] = True, 
+        log_path: Optional[str] = None,
+        log_file: Optional[str] = None, 
+        verbosity: Optional[int] = None, 
+        log_format: Optional[str] = None, 
+        log_file_mode: Optional[str] = "a", 
+        screenshot_dir: Optional[str] = "screenshots", 
+        monitor: Optional[int] = 0, 
         explicit_wait: Optional[float] = 0.0, 
         connection_number: Optional[int] = 0, 
         session_number: Optional[int] = 0, 
         connection_name: Optional[str] = None, 
-        date_format: Optional[str] = "%m/%d/%Y") -> None:
+        date_format: Optional[str] = "%m/%d/%Y", 
+        close_sap_on_cleanup: Optional[bool] = True) -> None:
         atexit.register(self.cleanup)
         self.test_case_name: str = test_case
-        self.subrc: int = 0
-        self.logger = SapLogger(log_name=self.test_case_name, log_path=log_path, verbosity=verbosity)
+        self.exit_on_error: bool = exit_on_error
+        self.screenshot_on_fail: bool = screenshot_on_fail
+        self.screenshot_on_pass: bool = screenshot_on_pass
+        self.close_sap_on_cleanup: bool = close_sap_on_cleanup
+        self.logger: Logger = Logger(log_name=self.test_case_name, log_path=log_path, log_file=log_file, verbosity=verbosity, format=log_format, file_mode=log_file_mode)
         self.__connection_number: int = connection_number
         self.__session_number: int = session_number
-        self.explicit_wait = explicit_wait
+        self.explicit_wait: float = explicit_wait
         self.connection_name: str = connection_name if connection_name is not None else ""
         self.sap_gui: win32com.client.CDispatch = None
         self.sap_app: win32com.client.CDispatch = None
         self.connection: win32com.client.CDispatch = None
         self.session: win32com.client.CDispatch = None
+        self.screenshot_dir: str = screenshot_dir
+        self.monitor: int = int(monitor)
         self.screenshot: Screenshot = Screenshot()
-        self.date_format = date_format
+        self.date_format: str = str(date_format)
 
-        if not os.path.exists(screenshot_dir):
-            self.logger.log.debug(f"Screenshot directory {screenshot_dir} does not exist, creating it.")
+        if not os.path.exists(self.screenshot_dir):
+            self.logger.log.debug(f"Screenshot directory {self.screenshot_dir} does not exist, creating it.")
             try:
-                os.makedirs(screenshot_dir)
+                os.makedirs(self.screenshot_dir)
             except Exception as err:
-                self.logger.log.error(f"Unable to create screenshot directory {screenshot_dir}")
-        self.screenshot.screenshot_directory = screenshot_dir
-        self.screenshot.monitor = monitor
+                self.logger.log.error(f"Unable to create screenshot directory {self.screenshot_dir} > {err}")
+        self.screenshot.screenshot_directory = self.screenshot_dir
+        self.screenshot.monitor = self.monitor
 
         self.window: int = 0
         self.transaction: str = None
@@ -329,65 +89,60 @@ class Gui:
         self.test_status: str = None
         self.test_case_failed: bool = False
         self.failed_tasks: list = []
-        self.task: str = ""
+        self.passed_tasks: list = []
+        self.__task: str = ""
+        self.element_id: str = None
+        self.element: SapObject = None
     
     def transaction_does_not_exist_strings(self) -> tuple:
         return (
             f"Transactie {self.transaction} bestaat niet", 
             f"Transaction {self.transaction} does not exist", 
-            f"Transaktion {self.transaction} existiert nicht"
-            )
+            f"Transaktion {self.transaction} existiert nicht")
     
     def cleanup(self):
         if self.test_status is None:
-            if self.test_case_failed or self.test_status == failed() or self.failed_tasks:
-                self.test_status = failed()
-            elif not self.test_case_failed and self.test_status != failed() and not self.failed_tasks:
-                self.test_status = passed()
+            if self.test_case_failed or self.test_status == FAIL or len(self.failed_tasks) > 0:
+                self.test_status = FAIL
+            elif not self.test_case_failed and self.test_status != FAIL and len(self.failed_tasks) == 0:
+                self.test_status = PASS
             else:
                 self.test_status = "UNKNOWN > Check the logs."
         self.documentation(f"{self.test_case_name} completed with status: {self.test_status}")
-        if self.failed_tasks:
+        if len(self.failed_tasks) > 0:
             self.documentation(str("The following tasks failed: \n" + "\n".join([str(x) for x in self.failed_tasks]) + "\n"))
-
-    def documentation(self, msg: str) -> None:
-        self.task = msg
-        self.logger.log.documentation(self.task)
+        if self.close_sap_on_cleanup:
+            self.exit(fail_on_error=False, is_task=False)
     
-    def fail(self, exit_on_error: Optional[bool] = True) -> None:
-        self.task_status = failed()
-        self.failed_tasks.append(self.task)
-        self.test_status = failed()
-        self.test_case_failed = True
-        if exit_on_error:
-            sys.exit()
+    @property
+    def task(self) -> None:
+        return self.__task
     
-    def task_passed(self) -> None:
-        self.task_status = passed()
-
-    def is_error(self) -> bool:
-        if self.subrc != 0:
-            return True
+    @task.setter
+    def task(self, value: Optional[str] = None) -> None:
+        if value:
+            self.__task = str(value)
         else:
-            return False
+            self.__task = parent_func()
+
+    def documentation(self, msg: Optional[str] = None) -> None:
+        _msg = msg if msg is not None else self.__task
+        if _msg is not None and _msg != "":
+            self.logger.log.documentation(_msg)
 
     def is_element(self, element: str) -> bool:
         try:
             self.session.findById(element)
+            self.element = self.session.findById(id)
             return True
         except:
             return False
-    
-    def log(self, msg: Any) -> None:
-        self.logger.log.info(str(msg))
 
-    def take_screenshot(self, screenshot_name: Optional[str] = "", msg: Optional[str] = "", logger: Optional[SapLogger] = None) -> None:
-        _log = self.logger
-        _file_names = None
-        if logger:
-            _log = logger
+    def take_screenshot(self, screenshot_name: Optional[str] = None, msg: Optional[str] = None) -> None:
+        _msg = msg if msg is not None else ""
+        _file_names = []
         if not screenshot_name:
-            _file_names = self.screenshot.shot()
+            _file_names.append(self.screenshot.shot())
         else:
             _file_names = self.screenshot.shot(name=screenshot_name)
         if _file_names:
@@ -395,178 +150,243 @@ class Gui:
                 encoded_img = None
                 with open(f, "rb") as f_img:
                     encoded_img = base64.b64encode(f_img.read())
-                _log.log.shot(f"{msg}|{f}|{encoded_img}")
-            
-    
-    def wait(self, value: Optional[float] = None) -> None:
-        if not value:
-            time.sleep(self.explicit_wait)
-        else:
-            time.sleep(value)
-    
-    def get_element_type(self, id: str) -> str | None:
-        try:
-            return self.session.findById(id).type
-        except Exception as err:
-            self.logger.log.error(f"Unknown element id: {id} -> {err}")
-            return None
-    
-    def get_focused_element(self, id: str, name: str, type: str) -> str:
-        parent = self.session.findById(id)
-        elements = parent.findAllByName(name, type)
-        for element in elements:
-            if element.text == "": 
-                element.SetFocus()
-                return element.id
-    
-    def pad(self, value: str, length: int, char: Optional[str] = "0", right: Optional[bool] = False) -> str:
-        if right:
-            tmp = value.split(".")
-            right_side = tmp[1]
-            while len(right_side) < length:
-                right_side = f"{right_side}{char}"
-            value = f"{tmp[0]}.{right_side}"
-        else:
-            while len(value) < length:
-                value = f"{char}{value}"
-        return value
+                self.logger.log.shot(f"{_msg}|{f}|{encoded_img}")
 
-    def connect_to_session(self) -> None:
+    def wait(self, value: Optional[float] = None) -> None:
+        """
+        Waits for the number of seconds given by value parameter or if value is None the explicit_wait value is used.
+
+        Keyword Arguments:
+            value {Optional[float]} -- Number of seconds to wait. (default: {None})
+        """
+        if value:
+            if type(value) is float | int:
+                time.sleep(float(value))
+            elif type(value) is str:
+                _value = None
+                try:
+                    if "," in value:
+                        value = value.replace(",", "").strip()
+                    if "." in value:
+                        _value = float(value)
+                    else:
+                        _value = int(value)
+                    time.sleep(float(_value))
+                except ValueError:
+                    self.logger.log.error(f"Unable to convert to int or float for {value} during call to wait, skipping wait timer")
+        else:
+            time.sleep(self.explicit_wait)
+
+    def fail(self, msg: Optional[str] = None, ss_name: Optional[str] = None) -> None:
+        """
+        Called from other function responsible for executing tasks. Implements wait if explicit_wait is set and marks the task as PASS.
+
+        Keyword Arguments:
+            msg {Optional[str]} -- Message to be logged as error (default: {None})
+        """
+        self.wait()
+        if msg:
+            self.logger.log.error(msg)
+        if self.screenshot_on_fail:
+            self.take_screenshot(screenshot_name=ss_name, msg=msg)
+        self.task_status = FAIL
+        self.failed_tasks.append(self.task)
+        if self.exit_on_error:
+            self.test_status = FAIL
+            self.test_case_failed = True
+            sys.exit()
+
+    def task_passed(self, msg: Optional[str] = None, ss_name: Optional[str] = None) -> None:
+        """
+        Called from other function responsible for executing test task. Implements wait if explicit_wait is set and marks the task as PASS.
+
+        Keyword Arguments:
+            msg {Optional[str]} -- Message to be logged as info (default: {None})
+        """
+        self.wait()
+        if msg:
+            self.logger.log.info(msg)
+        if self.screenshot_on_pass:
+            self.take_screenshot(screenshot_name=ss_name, msg=msg)
+        self.task_status = PASS
+        self.passed_tasks.append(self.task)
+
+    def get_element_type(self, id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> str | None:
+        """
+        Get type information for SAP GUI element.
+
+        Returns:
+            SAP GUI Element type -- Type of SAP GUI element.
+        """
+        _tmp = None
+        if is_task:
+            self.task()
+        try:
+            _tmp = self.session.findById(id).type
+            if is_task:
+                self.task_passed()
+        except Exception as err:
+            if is_task:
+                if fail_on_error: 
+                    self.fail(msg=f"Unknown element id: {id} -> {err}")
+                else:
+                    self.task_passed(msg=f"Unknown element id: {id}|{err}")
+        return _tmp
+
+    def connect_to_session(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        """
+        Connects to a SAP session.
+
+        Keyword Arguments:
+            fail_on_error {Optional[bool]} -- Fail test case if an error occurs. (default: {True})
+            is_task {Optional[bool]} -- If the current execution if a user defined task for a test case or not. (default: {True})
+
+        Raises:
+            ConnectionError: Error while getting SAP GUI object using win32com.client
+            ConnectionError: Error while getting SAP scripting engine
+            ConnectionError: Error while getting SAP connection to Window 
+            ConnectionError: SAP scripting is disable for this server
+            ConnectionError: Error while getting SAP session to Windo
+            ConnectionError: Unable to get status bar during session connection
+            ConnectionError: Unable to get session information
+        """
+        if is_task:
+            self.task()
         try:
             self.sap_gui = win32com.client.GetObject("SAPGUI")
             if not type(self.sap_gui) == win32com.client.CDispatch:
-                self.logger.log.error(f"Error while getting SAP GUI object using win32com.client")
-                return
+                raise ConnectionError("Error while getting SAP GUI object using win32com.client")
             self.sap_app = self.sap_gui.GetScriptingEngine
             if not type(self.sap_app) == win32com.client.CDispatch:
-                self.logger.log.error(f"Error while getting SAP scripting engine")
                 self.sap_gui = None
-                return
+                raise ConnectionError("Error while getting SAP scripting engine")
             self.connection = self.sap_app.Children(self.__connection_number)
             if not type(self.connection) == win32com.client.CDispatch:
-                self.logger.log.error(f"Error while getting SAP connection to Window {self.__connection_number}")
                 self.sap_app = None
                 self.sap_gui = None
-                return
+                raise ConnectionError(f"Error while getting SAP connection to Window {self.__connection_number}")
             if self.connection.DisabledByServer == True:
-                self.logger.log.error(f"SAP scripting is disable for this server")
+                self.logger.log.error("SAP scripting is disable for this server")
                 self.sap_app = None
                 self.sap_gui = None
-                return
+                raise ConnectionError("SAP scripting is disable for this server")
             self.session = self.connection.Children(self.__session_number)
             if not type(self.session) == win32com.client.CDispatch:
-                self.logger.log.error(f"Error while getting SAP session to Window {self.__session_number}")
                 self.connection = None
                 self.sap_app = None
                 self.sap_gui = None
-                return
+                raise ConnectionError(f"Error while getting SAP session to Window {self.__session_number}")
             if self.session.Info.IsLowSpeedConnection == True:
-                self.logger.log.error(f"SAP connect is listed as low speed, scripting not possible")
+                self.logger.log.error("SAP connection is listed as low speed, scripting not possible")
                 self.connection = None
                 self.sap_app = None
                 self.sap_gui = None
-                return
+                raise ConnectionError("SAP connection is listed as low speed, scripting not possible")
             self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]/sbar")
             if not type(self.sbar) == win32com.client.CDispatch:
-                self.logger.log.error(f"Unable to get status bar during session connection")
                 self.connection = None
                 self.sap_app = None
                 self.sap_gui = None
                 self.session = None
-                return
+                raise ConnectionError("Unable to get status bar during session connection")
             self.session_info = self.session.info
-            self.task_passed()
-        except:
-            self.logger.log.error(f"Unknown error while establishing connection with SAP GUI -> {sys.exc_info()[0]}")
-            self.fail()
-        finally:
-            self.sap_gui = None
-            self.sap_app = None
-            self.connection = None
-            self.session = None
-    
-    def connect_to_existing_connection(self, connection_name: Optional[str] = None) -> None:
+            if self.session_info is None:
+                self.connection = None
+                self.sap_app = None
+                self.sap_gui = None
+                self.session = None
+                self.session_info = None
+                raise ConnectionError("Unable to get session information")
+            if is_task:
+                self.task_passed()
+        except Exception as err:
+            _msg = f"Unknown error while establishing connection with SAP GUI|{sys.exc_info()[0]}|{err}"
+            if is_task:
+                if fail_on_error:
+                    self.fail(_msg)
+                else:
+                    self.task_passed(_msg)
+            else:
+                self.logger.log.warning(_msg)
+
+    def connect_to_existing_connection(self, connection_name: Optional[str] = None, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        """
+        Connect to an existing SAP connection and get a session.
+
+        Keyword Arguments:
+            connection_name {Optional[str]} -- The name of the SAP connect from SAP Logon Pad (default: {None})
+            fail_on_error {Optional[bool]} -- If case should fail if there is an error during the execution (default: {True})
+            is_task {Optional[bool]} -- If the current function call is a task called by the user (default: {True})
+        """
+        if is_task:
+            self.task()
         if connection_name:
             self.connection_name = connection_name
-        self.connection = self.sap_gui.Children(self.__connection_number)
-        if self.connection.Description == self.connection_name:
-            self.session = self.connection.children(self.session_number)
-            self.wait()
-            self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.session_number}]/wnd[{self.window}]/sbar")
-            self.session_info = self.session.info
-            self.task_passed()
-        else:
-            self.take_screenshot(screenshot_name="connect_to_existing_connection_error.jpg")
-            self.logger.log.error(f"No existing connection for {self.connection_name} found.")
-            self.fail()
-    
-    def open_connection(self, connection_name: Optional[str] = None):
+        try:
+            self.connection = self.sap_gui.Children(self.__connection_number)
+            if self.connection.Description == self.connection_name:
+                self.session = self.connection.children(self.session_number)
+                self.wait(2.0)
+                self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.session_number}]/wnd[{self.window}]/sbar")
+                self.session_info = self.session.info
+                self.task_passed()
+            else:
+                self.fail(msg=f"No existing connection for {self.connection_name} found.", ss_name="connect_to_existing_connection_error")
+        except Exception as err:
+            _msg = f"Unknown error while trying to establish existing connection for {self.connection_name}|{err}."
+            if is_task:
+                if fail_on_error:
+                    self.fail(msg=_msg, ss_name="connect_to_existing_connection_error")
+                else:
+                    self.task_passed(msg=_msg, ss_name="connect_to_existing_connection_error")
+            else:
+                self.logger.log.warning(_msg)
+
+    def open_connection(self, connection_name: Optional[str] = None, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        """
+        Open a new SAP connection and session.
+
+        Keyword Arguments:
+            connection_name {Optional[str]} -- The name of the SAP connection from SAP Logon Pad (default: {None})
+            fail_on_error {Optional[bool]} -- If case should fail if there is an error during the execution (default: {True})
+            is_task {Optional[bool]} -- If the current function call is a task called by the user (default: {True})
+        """
+        if is_task:
+            self.task()
         if not hasattr(self.sap_app, "OpenConnection"):
             try:
                 self.sap_gui = win32com.client.GetObject("SAPGUI")
                 if not type(self.sap_gui) == win32com.client.CDispatch:
-                    self.logger.log.error(f"Error while getting SAP GUI object using win32com.client")
-                    self.fail()
+                    self.fail("Error while getting SAP GUI object using win32com.client")
                 self.sap_app = self.sap_gui.GetScriptingEngine
                 if not type(self.sap_app) == win32com.client.CDispatch:
-                    self.logger.log.error(f"Error while getting SAP scripting engine")
                     self.sap_gui = None
-                    self.fail()
-            except:
-               self.logger.log.warning("SAP Login Pad not running")
-               self.fail()
-        if connection_name:
-            self.connection_name = connection_name
-        try:
-            self.connection = self.sap_app.OpenConnection(self.connection_name, True)
-        except Exception as err:
-            self.logger.log.error(f"Cannot open connection {self.connection_name}, please check connection name -> {err}")
-            self.fail()
-        self.session = self.connection.children(self.__session_number)
-        self.wait()
-        self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]/sbar")
-        self.session_info = self.session.info
-        self.task_passed()
-    
-    def exit(self) -> None:
-        self.connection.closeSession(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]")
-        self.connection.closeConnection()
-        self.task_passed()
-    
-    def maximize_window(self) -> None:
-        self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]").maximize()
-        self.task_passed()
-    
-    def restart_session(self, connection_name: str, delay: Optional[float] = 0.0) -> None:
-        self.connection_name = connection_name if connection_name is not None else self.connection_name
-        self.exit()
-        self.open_connection(connection_name=self.connection_name)
-        self.maximize_window()
-        self.wait(value=delay)
-        self.task_passed()
-    
-    def wait_for_element(self, id: str, timeout: Optional[float] = 60.0, exit_on_error: Optional[bool] = True) -> None:
-        t = Timer()
-        while not self.is_element(element=id) and t.elapsed() <= timeout:
-            self.wait(value=1.0)
-        if not self.is_element(element=id):
-            self.take_screenshot(screenshot_name="wait_for_element_error")
-            self.logger.log.error(f"Wait For Element could not find element with id {id}")
-            self.fail(exit_on_error=exit_on_error)
-        self.task_passed()
-    
-    def get_statusbar_if_error(self, exit_on_error: Optional[bool] = True) -> str:
-        try:
-            if self.sbar.messageType == "E":
-                return f"{self.sbar.findById('pane[0]').text} -> Message no. {self.sbar.messageId.strip('')}:{self.sbar.messageNumber}"
-            else:
-                return ""
-        except:
-            self.take_screenshot(screenshot_name="get_statusbar_if_error_error")
-            self.logger.log.error(f"Error while checking if statusbar had error msg.")
-            self.fail(exit_on_error)
-    
-    def get_status_msg(self) -> dict:
+                    self.fail("Error while getting SAP scripting engine")
+                if connection_name:
+                    self.connection_name = connection_name
+                self.connection = self.sap_app.OpenConnection(self.connection_name, True)
+                self.session = self.connection.children(self.__session_number)
+                self.wait(1.0)
+                self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]/sbar")
+                self.session_info = self.session.info
+                self.task_passed(ss_name="open_connection")
+            except Exception as err:
+                _msg = f"Cannot open connection {self.connection_name}, please check connection name|{err}"
+                if is_task:
+                    if fail_on_error:
+                        self.fail(msg=_msg, ss_name="open_connection")
+                    else:
+                        self.task_passed(msg=_msg, ss_name="open_connection")
+                else:
+                    self.logger.log.warning(_msg)
+
+    def get_status_msg_dict(self) -> dict:
+        """
+        Gets the SAP status message text as a dictonary.
+
+        Returns:
+            dict -- dict of status message
+        """
         try:
             msg_id = self.sbar.messageId
         except:
@@ -589,61 +409,240 @@ class Gui:
             txt = ""
         return {"messageId": msg_id, "messageNumber": msg_number, "messageType": msg_type, "message": msg, "text": txt}
     
-    def start_transaction(self, transaction: str) -> None:
-        self.transaction = transaction.upper()
-        self.session.startTransaction(self.transaction)
-        self.wait()
-        if (s_msg := str(self.sbar.findById('pane[0]').text).strip(" \n\r\t")) in self.transaction_does_not_exist_strings():
-            self.take_screenshot(screenshot_name="start_transaction_error")
-            self.logger.log.error(f"ValueError > {s_msg}")
-            self.fail()
-        else:
-            self.logger.log.info(f"Started transaction {self.transaction} successfully > {s_msg}")
-            self.task_passed()
-    
-    start = start_transaction
-    
-    def end_transaction(self) -> None:
-        self.session.endTransaction()
-        self.task_passed()
-    
-    end = end_transaction
-    
-    def send_command(self, command: str) -> None:
+    def assert_success_status(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task:
+            self.task()
         try:
-            self.session.sendCommand(command)
+            smd = self.get_status_msg_dict()
+            if smd['messageType'] == "S":
+                self.task_passed(msg=f"Status is Success. MsgID & MsgNumber: {smd['messageId']}{smd['messageNumber']}, MsgType: {smd['messageType']}, Msg: {smd['message']} {smd['text']}", ss_name="assert_success_status_pass")
+            else:
+                self.fail(msg=f"Status is not equal 'S'. MsgID & MsgNumber: {smd['messageId']}{smd['messageNumber']}, MsgType: {smd['messageType']}, Msg: {smd['message']} {smd['text']}", ss_name="assert_success_status_fail")
+        except Exception as err:
+            _msg = f"Unknown error while attempting to check status.|{err}"
+            if is_task:
+                if fail_on_error:
+                    self.fail(msg=_msg, ss_name="assert_success_status_fail")
+                else:
+                    self.task_passed(msg=_msg, ss_name="assert_success_status_pass")
+            else:
+                self.logger.log.warning(_msg)
+
+    def exit(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        """
+        Exit the current SAP session.
+
+        Keyword Arguments:
+            fail_on_error {Optional[bool]} -- If case should fail if there is an error during the execution (default: {True})
+            is_task {Optional[bool]} -- If the current function call is a task called by the user (default: {True})
+        """
+        if is_task:
+            self.task()
+        try:
+            self.connection.closeSession(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]")
+            self.connection.closeConnection()
+            self.task_passed(msg="Exit successfully.", ss_name="exit")
+        except Exception as err:
+            _msg = f"Unknown error while attempting to exit SAP session.|{err}"
+            if is_task:
+                if fail_on_error:
+                    self.fail(msg=_msg, ss_name="exit")
+                else:
+                    self.task_passed(msg=_msg, ss_name="exit")
+            else:
+                self.logger.log.warning(_msg)
+
+    def maximize_window(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        """
+        Maximize the current SAP window to fullsize.
+
+        Keyword Arguments:
+            fail_on_error {Optional[bool]} -- If case should fail if there is an error during the execution (default: {True})
+            is_task {Optional[bool]} -- If the current function call is a task called by the user (default: {True})
+        """
+        if is_task:
+            self.task()
+        try:
+            self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]").maximize()
+            self.task_passed(msg="Maximize of SAP window successful", ss_name="maximize_window")
+        except Exception as err:
+            _msg = f"Unknown error while attempting to maximize SAP window.|{err}"
+            if is_task:
+                if fail_on_error:
+                    self.fail(msg=_msg, ss_name="maximize_window")
+                else:
+                    self.task_passed(msg=_msg, ss_name="maximize_window")
+            else:
+                self.logger.log.warning(_msg)
+
+    def restart_session(self, connection_name: str, delay: Optional[float] = 0.0, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        """
+        Restart the SAP session by exiting and reopening a new session.
+
+        Arguments:
+            connection_name {str} -- The name of the SAP connect from SAP Logon Pad
+
+        Keyword Arguments:
+            delay {Optional[float]} -- Additional delay after reopening SAP session so it can correctly load before proceeding. (default: {0.0})
+            fail_on_error {Optional[bool]} -- If case should fail if there is an error during the execution (default: {True})
+            is_task {Optional[bool]} -- If the current function call is a task called by the user (default: {True})
+        """
+        if is_task:
+            self.task()
+        try:
+            self.connection_name = connection_name if connection_name is not None else self.connection_name
+            self.exit()
+            self.open_connection(connection_name=self.connection_name)
+            self.maximize_window()
+            self.wait(value=delay)
+            self.task_passed(msg="Successfully restart SAP session.", ss_name="restart_session")
+        except Exception as err:
+            _msg = f"Unknown error while attempting to restart SAP session.|{err}"
+            if is_task:
+                if fail_on_error:
+                    self.fail(msg=_msg, ss_name="restart_session")
+                else:
+                    self.task_passed(msg=_msg, ss_name="restart_session")
+            else:
+                self.logger.log.warning(_msg)
+
+    def wait_for_element(self, id: str, timeout: Optional[float] = 60.0, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        """
+        Checks every 0.5 seconds for a SAP GUI element to become available and returning once the element is available or the timeout expairs.  
+
+        Arguments:
+            id {str} -- SAP GUI element's if string
+
+        Keyword Arguments:
+            timeout {Optional[float]} -- Amount of time to wait for element to become available (default: {60.0})
+            fail_on_error {Optional[bool]} -- If case should fail if there is an error during the execution (default: {True})
+            is_task {Optional[bool]} -- If the current function call is a task called by the user (default: {True})
+        """
+        if is_task:
+            self.task()
+        t = Timer()
+        while not self.is_element(element=id) and t.elapsed() <= timeout:
+            self.wait(value=0.5)
+        if not self.is_element(element=id):
+            if is_task:
+                if fail_on_error:
+                    self.fail(msg=f"Wait For Element could not find element with id {id}", ss_name="wait_for_element_error")
+                else:
+                    self.task_passed(msg=f"Wait For Element could not find element with id {id}", ss_name="wait_for_element")
+            else:
+                self.logger.log.warning(f"Wait For Element could not find element with id {id}")
+        else:
+            self.task_passed(msg=f"Wait For Element with id {id} successful", ss_name="wait_for_element")
+
+    def get_statusbar_if_error(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> str | None:
+        """
+        Get SAP statusbar message if statusbar in error state.
+
+        Returns:
+            str | None -- Statusbar error text or None
+        """
+        _tmp = None
+        if is_task:
+            self.task()
+        try:
+            if self.sbar.messageType == "E":
+                _tmp = f"{self.sbar.findById('pane[0]').text} -> Message no. {self.sbar.messageId.strip('')}:{self.sbar.messageNumber}"
+            self.task_passed(msg=f"get_statusbar_if_error was successful", ss_name="get_statusbar_if_error")
+        except Exception as err:
+            _msg = f"Unhandled error while checking if statusbar had error msg.|{err}"
+            if is_task:
+                if fail_on_error:
+                    self.fail(msg=_msg, ss_name="error_for_get_statusbar_if_error")
+                else:
+                    self.task_passed(msg=_msg, ss_name="error_for_get_statusbar_if_error")
+            else:
+                self.log.warning(_msg)
+        return _tmp
+
+    def start_transaction(self, transaction: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task()
+        try:
+            self.transaction = transaction.upper()
+            self.session.startTransaction(self.transaction)
+            self.wait(1.0)
+            if (s_msg := str(self.sbar.findById('pane[0]').text).strip(" \n\r\t")) in self.transaction_does_not_exist_strings():
+                if fail_on_error:
+                    self.fail(msg=f"ValueError|{s_msg}", ss_name="start_transaction_error")
+                else:
+                    self.task_passed(msg=f"ValueError|{s_msg}", ss_name="start_transaction")
+            else:
+                self.task_passed(msg=f"Started transaction {self.transaction} successfully|{s_msg}", ss_name="start_transaction")
+        except Exception as err:
+            _msg = f"Unhandled error during start_transaction|{err}"
+            if is_task:
+                if fail_on_error:
+                    self.fail(msg=_msg, ss_name="start_transaction_error")
+                else:
+                    self.task_passed(msg=_msg, ss_name="start_transaction_error")
+            else:
+                self.logger.log.warning(_msg)
+    
+    start: FunctionType = start_transaction
+    Start: FunctionType = start_transaction
+    START: FunctionType = start_transaction
+    
+    def end_transaction(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task()
+        try:
+            self.session.endTransaction()
             self.task_passed()
         except Exception as err:
-            self.take_screenshot(screenshot_name="send_command_error")
-            self.logger.log.error(f"Error sending command {command} -> {err}")
-            self.fail()
+            _msg = f"Error ending transaction|{err}"
+            if is_task:
+                if fail_on_error:
+                    self.fail(msg=_msg, ss_name="end_transaction_error")
+                else:
+                    self.task_passed(msg=_msg, ss_name="end_transaction_error")
+            else:
+                self.logger.log.warning(_msg)
+    
+    end: FunctionType = end_transaction
+    End: FunctionType = end_transaction
+    END: FunctionType = end_transaction
+    
+    def send_command(self, command: str, fail_on_error: Optional[bool] = True) -> None:
+        try:
+            self.session.sendCommand(command)
+        except Exception as err:
+            if fail_on_error:
+                self.take_screenshot(screenshot_name="send_command_error")
+                self.logger.log.error(f"Error sending command {command}|{err}")
+                self.fail()
+        self.wait()
+        self.task_passed()
 
-    def click_element(self, id: str = None) -> None:
+    def click_element(self, id: str = None, fail_on_error: Optional[bool] = True) -> None:
         try:
             if (element_type := self.get_element_type(id)) in ("GuiTab", "GuiMenu"):
                 self.session.findById(id).select()
-                self.task_passed()
-                self.wait()
             elif element_type == "GuiButton":
                 self.session.findById(id).press()
-                self.task_passed()
-                self.wait()
         except Exception as err:
-            self.take_screenshot(screenshot_name="click_element_error")
-            self.logger.log.error(f"You cannot use 'Click Element' on element id type {id} > {err}")
+            if fail_on_error:
+                self.take_screenshot(screenshot_name="click_element_error")
+                self.logger.log.error(f"You cannot use 'Click Element' on element id type {id} > {err}")
+                self.fail()
+        self.wait()
+        self.task_passed()
     
     click = click_element
 
-    def click_toolbar_button(self, table_id: str, button_id: str) -> None:
+    def click_toolbar_button(self, table_id: str, button_id: str, fail_on_error: Optional[bool] = True) -> None:
         self.element_should_be_present(table_id)
         try:
             self.session.findById(table_id).pressToolbarButton(button_id)
         except AttributeError:
             self.session.findById(table_id).pressButton(button_id)
         except Exception as err:
-            self.take_screenshot(screenshot_name="click_toolbar_button_error")
-            self.logger.log.error(f"Cannot find Table ID/Button ID: {' / '.join([table_id, button_id])}  <-->  {err}")
-            self.fail()
+            if fail_on_error:
+                self.take_screenshot(screenshot_name="click_toolbar_button_error")
+                self.logger.log.error(f"Cannot find Table ID/Button ID: {' / '.join([table_id, button_id])}  <-->  {err}")
+                self.fail()
         self.wait()
         self.task_passed()
 
@@ -1167,7 +1166,7 @@ class SalesOrder:
         if press_enter:
             self.sap.send_vkey(vkey="Enter")
         # Handle status msg about duplicate PO values
-        result = self.sap.get_status_msg()
+        result = self.sap.get_status_msg_dict()
         if result["messageId"].strip(" \n\r\t") == "V4" and result["messageNumber"] == "115" and result["messageType"] == "W":
             self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=datetime.datetime.now().strftime("%Y%m%d%H%M%S%f"))
             self.sap.enter()
@@ -1204,6 +1203,9 @@ class SalesOrder:
             self.set_combobox(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/cmbVBAK-AUGRU", key=order_reason)
         if press_enter:
             self.sap.send_vkey(vkey="Enter")
+    
+    def va01_handle_apt_item(self, option: Optional[str] = "PROPOSAL") -> None:
+        pass
     
     def va01_line_items(self, line_items: list[dict], press_enter: Optional[bool] = True) -> None:
         self.sap.click_element(id="/app/con[0]/ses[0]/wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01")

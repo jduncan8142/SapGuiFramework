@@ -7,7 +7,7 @@ with open('README.md') as f:
 
 setup(
     name="SapGuiFramework",
-    version="0.0.7",
+    version="0.0.9",
     author="Jason Duncan",
     author_email="jason.matthew.duncan@gmail.com",
     description="A Robocorp Robot Framework Library for controlling the SAP GUI desktop client",
@@ -24,7 +24,7 @@ setup(
         "Operating System :: Microsoft :: Windows",
         "License :: OSI Approved :: MIT License",
     ),
-    package_dir={"": "SapGui"},
+    package_dir={"SapGui": "SapGui", "SapLogger": "SapGui", "SapLogonPad": "SapLogonPad", "Utilities": "Utilities"},
     python_requires=">=3.10",
-    install_requires=["pywin32>=300", "mss>=6.1.0"]
+    install_requires=["pywin32>=302", "mss>=6.1.0", "lxml>=4.6.4", "PySimpleGUI>=4.55.1", "xmltodict>=0.12.0", "thefuzz>=0.19.0", "python-Levenshtein>=0.12.2"]
 )
