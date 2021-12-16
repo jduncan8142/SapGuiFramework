@@ -135,7 +135,9 @@ class Gui:
             self.element = self.session.findById(id)
             return True
         except:
-            return False
+            self.logger.log.debug(f"Unable to locate element: {element} ")
+            pass
+        return False
 
     def take_screenshot(self, screenshot_name: Optional[str] = None, msg: Optional[str] = None) -> None:
         _msg = msg if msg is not None else ""
@@ -520,8 +522,11 @@ class Gui:
         if is_task:
             self.task
         t = Timer()
-        while not self.is_element(element=id) or t.elapsed() <= timeout:
-            self.wait(value=0.5)
+        while True:
+            if not self.is_element(element=id) and t.elapsed() <= timeout:
+                self.wait(value=0.5)
+            else:
+                break
         if not self.is_element(element=id):
             if is_task:
                 if fail_on_error:
