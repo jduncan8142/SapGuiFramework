@@ -5,7 +5,7 @@ import string
 import random
 import base64
 import atexit
-from typing import Optional
+from typing import Optional, Any
 from Utilities.Utilities import *
 from SAPLogger.SapLogger import Logger
 from SapObject.SapObject import SapObject
