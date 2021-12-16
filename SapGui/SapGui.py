@@ -520,7 +520,7 @@ class Gui:
         if is_task:
             self.task
         t = Timer()
-        while not self.is_element(element=id) and t.elapsed() <= timeout:
+        while not self.is_element(element=id) or t.elapsed() <= timeout:
             self.wait(value=0.5)
         if not self.is_element(element=id):
             if is_task:
