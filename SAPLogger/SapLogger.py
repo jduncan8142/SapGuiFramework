@@ -25,8 +25,8 @@ class Logger:
 
         self.log_file: str = log_file 
         if self.log_file is None:
-            os.path.join(self.log_path, f"{self.log_name}.log")
-        if not os.path.exists(self.log_file):
+            self.log_file = os.path.join(self.log_path, f"{self.log_name}.log")
+        if not os.path.isfile(self.log_file):
             with open(self.log_file, "w") as f:
                 pass
 
