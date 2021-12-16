@@ -73,28 +73,28 @@ class Logger:
         self.stream_handler.setFormatter(self.formatter)
         match self.verbosity:
             case 5:
-                self.__log.setLevel(10)
+                self.log.setLevel(10)
                 self.file_handler.setLevel(10)
                 self.stream_handler.setLevel(10)
             case 4:
-                self.__log.setLevel(20)
+                self.log.setLevel(20)
                 self.file_handler.setLevel(20)
                 self.stream_handler.setLevel(20)
             case 3:
-                self.__log.setLevel(25)
+                self.log.setLevel(25)
                 self.file_handler.setLevel(25)
                 self.stream_handler.setLevel(30)
             case 2:
-                self.__log.setLevel(25)
+                self.log.setLevel(25)
                 self.file_handler.setLevel(25)
                 self.stream_handler.setLevel(40)
             case 1:
-                self.__log.setLevel(25)
+                self.log.setLevel(25)
                 self.file_handler.setLevel(25)
                 self.stream_handler.setLevel(50)
             case _:
-                self.__log.setLevel(25)
+                self.log.setLevel(25)
                 self.file_handler.setLevel(25)
                 self.stream_handler.setLevel(90)
-        self.__log.addHandler(self.file_handler)
-        self.__log.addHandler(self.stream_handler)
+        self.log.addHandler(self.file_handler)
+        self.log.addHandler(self.stream_handler)
