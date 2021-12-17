@@ -620,19 +620,24 @@ class Gui:
         self.wait()
         self.task_passed()
 
-    def click_element(self, id: str = None, fail_on_error: Optional[bool] = True) -> None:
+    def click_element(self, id: str = None, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task:
+            self.task
         try:
             if (element_type := self.get_element_type(id)) in ("GuiTab", "GuiMenu"):
                 self.session.findById(id).select()
             elif element_type == "GuiButton":
                 self.session.findById(id).press()
+            self.task_passed(msg="Click element: {id} successful", ss_name="click_element_success")
         except Exception as err:
-            if fail_on_error:
-                self.take_screenshot(screenshot_name="click_element_error")
-                self.logger.log.error(f"You cannot use 'Click Element' on element id type {id} > {err}")
-                self.fail()
-        self.wait()
-        self.task_passed()
+            _msg = f"Unknown error while attempting click_element on {id}.|{err}"
+            if is_task:
+                if fail_on_error:
+                    self.fail(msg=_msg, ss_name="click_element_error")
+                else:
+                    self.task_passed(msg=_msg, ss_name="click_element_pass_error")
+            else:
+                self.logger.log.warning(_msg)
     
     click = click_element
 
@@ -666,6 +671,23 @@ class Gui:
             self.logger.log.error(message if message is not None else f"Cannot find element {id}")
             self.fail()
         self.task_passed()
+    
+    def assert_string_has_numeric(self, text: str, len_value: Optional[int] = None, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> bool:
+        if is_task:
+            self.task
+        result = False
+        matched_value = re.search("\d+", text).group(0)
+        if len_value is not None:
+            if matched_value is not None:
+                if len(matched_value) == len_value:
+                    result = True
+        else:
+            if matched_value is not None:
+                result = True
+        if result:
+            self.task_passed(msg="String {text} has numeric value: {matched_value}", ss_name="assert_string_has_numeric_pass")
+        else:
+            self.fail(msg="String {text} has no numeric value", ss_name="assert_string_has_numeric_fail")
 
     def assert_element_value(self, id: str, expected_value: str, message: Optional[str] = None) -> None:
         if self.is_element(element=id):
@@ -837,15 +859,17 @@ class Gui:
             self.logger.log.error(f"Cannot get value for element type {element_type} for id {id} -> {err}")
             self.fail(exit_on_error=exit_on_error)
 
-    def input_text(self, id: str, text: str) -> None:
+    def input_text(self, id: str, text: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task:
+            self.task
         if (element_type := self.get_element_type(id)) in self.text_elements:
             self.session.findById(id).text = text
             if element_type != "GuiPasswordField":
                 self.logger.log.info(f"Input {text} into text field {id}")
             self.wait()
-            self.task_passed()
+            self.task_passed(msg="", ss_name="")
         else:
-            self.take_screenshot(screenshot_name="input_text_error.jpg")
+            self.take_screenshot(screenshot_name="input_text_error")
             self.logger.log.error(f"Cannot use keyword 'input text' for element type {element_type}")
             self.fail()
     
