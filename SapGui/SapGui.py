@@ -628,7 +628,7 @@ class Gui:
                 self.session.findById(id).select()
             elif element_type == "GuiButton":
                 self.session.findById(id).press()
-            self.task_passed(msg="Click element: {id} successful", ss_name="click_element_success")
+            self.task_passed(msg=f"Click element: {id} successful", ss_name="click_element_success")
         except Exception as err:
             _msg = f"Unknown error while attempting click_element on {id}.|{err}"
             if is_task:
@@ -1087,6 +1087,32 @@ class Gui:
                 self.take_screenshot(screenshot_name="select_table_column_error")
                 self.logger.log.error(f"Cannot find column ID: {column_id} for table {table_id}")
                 self.fail()
+    
+    def dump_grid_view(self, table_id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True):
+        _rows = []
+        if is_task:
+            self.task
+        try:
+            _table = self.session.findById(table_id)
+            _row_count = _table.rowCount
+            _column_names = [i for i in _table.columnOrder]
+            for row in range(_row_count): 
+                _cells = []
+                for column in _column_names:
+                    _cells.append(_table.getCellValue(row, column))
+                _rows.append(_cells)
+            if is_task:
+                self.task_passed(msg=f"GridView dump successfully", ss_name="dump_grid_view_pass_success")
+        except Exception as err:
+            _msg = f"Unknown error in dump_grid_view|{err}"
+            if is_task:
+                if fail_on_error:
+                    self.fail(msg=_msg, ss_name="dump_grid_view_error")
+                else:
+                    self.task_passed(msg=_msg, ss_name="dump_grid_view_pass_error")
+            else:
+                self.logger.log.warning(_msg)
+        return _rows
 
     def select_table_row(self, table_id: str, row_num: int) -> None:
         if (element_type := self.get_element_type(table_id)) == "GuiTableControl":
