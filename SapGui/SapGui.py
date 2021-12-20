@@ -476,7 +476,7 @@ class Gui:
             else:
                 self.logger.log.warning(_msg)
 
-    def restart_session(self, connection_name: str, delay: Optional[float] = 0.0, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+    def restart_session(self, connection_name: Optional[str] = None, delay: Optional[float] = 0.0, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
         """
         Restart the SAP session by exiting and reopening a new session.
 
@@ -490,12 +490,13 @@ class Gui:
         """
         if is_task:
             self.task
+        if connection_name is not None:
+            self.connection_name = connection_name
         try:
-            self.connection_name = connection_name if connection_name is not None else self.connection_name
             self.exit()
-            self.open_connection(connection_name=self.connection_name)
-            self.maximize_window()
+            self.open_connection(connection_name=self.connection_name, fail_on_error=False, is_task=False)
             self.wait(value=delay)
+            self.maximize_window()
             self.task_passed(msg="Successfully restart SAP session.", ss_name="restart_session")
         except Exception as err:
             _msg = f"Unknown error while attempting to restart SAP session.|{err}"
@@ -1155,7 +1156,7 @@ class Gui:
             self.logger.log.error(f"Cannot get next empty table row for table {table_id} -> {err}")
             self.fail()
     
-    def insert_in_table(self, table_id: str, value: str, column_index: int = 0, row_index: Optional[int] = None) -> None:
+    def insert_in_table(self, table_id: str, value: str, column_index: Optional[int] = 0, row_index: Optional[int] = None) -> None:
         if not row_index:
             row_index = self.get_next_empty_table_row(table_id=table_id, column_index=column_index)
         table = self.session.findById(table_id)
