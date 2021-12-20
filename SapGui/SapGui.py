@@ -896,15 +896,15 @@ class Gui:
     def input_current_date(self, id: str, format: Optional[str] = "%m/%d/%Y") -> None:
         self.input_text(id=id, text=datetime.datetime.now().strftime(format))
 
-    def maximize_window(self, window: Optional[int] = None) -> None:
-        if window:
-            self.window = window
-        try:
-            self.session.findById(f"wnd[{self.window}]").maximize()
-            self.wait()
-        except Exception as err:
-            self.take_screenshot(screenshot_name="maximize_window")
-            self.logger.log.error(f"Cannot maximize window wnd[{self.window}] -> {err}")
+    # def maximize_window(self, window: Optional[int] = None) -> None:
+    #     if window:
+    #         self.window = window
+    #     try:
+    #         self.session.findById(f"wnd[{self.window}]").maximize()
+    #         self.wait()
+    #     except Exception as err:
+    #         self.take_screenshot(screenshot_name="maximize_window")
+    #         self.logger.log.error(f"Cannot maximize window wnd[{self.window}] -> {err}")
 
     def set_vertical_scroll(self, id: str, position: int) -> None:
         if self.is_element(id):
