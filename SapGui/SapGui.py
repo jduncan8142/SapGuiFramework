@@ -677,7 +677,10 @@ class Gui:
         if is_task:
             self.task
         result = False
-        matched_value = re.search("\d+", text).group(0)
+        try:
+            matched_value = re.search("\d+", text).group(0)
+        except AttributeError:
+            matched_value = None
         if len_value is not None:
             if matched_value is not None:
                 if len(matched_value) == len_value:
@@ -689,6 +692,7 @@ class Gui:
             self.task_passed(msg="String {text} has numeric value: {matched_value}", ss_name="assert_string_has_numeric_pass")
         else:
             self.fail(msg="String {text} has no numeric value", ss_name="assert_string_has_numeric_fail")
+        return result
 
     def assert_element_value(self, id: str, expected_value: str, message: Optional[str] = None) -> None:
         if self.is_element(element=id):
@@ -777,7 +781,7 @@ class Gui:
                 self.logger.log.error(f"Cannot find cell value for table: {table_id}, row: {row_num}, and column: {col_id} -> {err}")
                 self.fail()
 
-    def set_combobox(self, id: str, key: str) -> None:
+    def set_combobox(self, id: str, key: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
         if (element_type := self.get_element_type(id)) == "GuiComboBox":
             self.session.findById(id).key = key
             self.logger.log.info(f"ComboBox value {key} selected from {id}")
@@ -789,6 +793,7 @@ class Gui:
             self.fail()
     
     combobox = set_combobox
+    set_dropdown = set_combobox
 
     def get_element_location(self, id: str) -> tuple[int] | None:
         _location = (self.session.findById(id).screenLeft, self.session.findById(id).screenTop) if self.is_element(element=id) else None
