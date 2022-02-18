@@ -247,7 +247,7 @@ class Gui:
             ConnectionError: Error while getting SAP scripting engine
             ConnectionError: Error while getting SAP connection to Window 
             ConnectionError: SAP scripting is disable for this server
-            ConnectionError: Error while getting SAP session to Windo
+            ConnectionError: Error while getting SAP session to Window
             ConnectionError: Unable to get status bar during session connection
             ConnectionError: Unable to get session information
         """
@@ -383,7 +383,7 @@ class Gui:
 
     def get_status_msg_dict(self) -> dict:
         """
-        Gets the SAP status message text as a dictonary.
+        Gets the SAP status message text as a dictionary.
 
         Returns:
             dict -- dict of status message
@@ -689,9 +689,9 @@ class Gui:
             if matched_value is not None:
                 result = True
         if result:
-            self.task_passed(msg="String {text} has numeric value: {matched_value}", ss_name="assert_string_has_numeric_pass")
+            self.task_passed(msg=f"String {text} has numeric value: {matched_value}", ss_name="assert_string_has_numeric_pass")
         else:
-            self.fail(msg="String {text} has no numeric value", ss_name="assert_string_has_numeric_fail")
+            self.fail(msg=f"String {text} has no numeric value", ss_name="assert_string_has_numeric_fail")
         return result
 
     def assert_element_value(self, id: str, expected_value: str, message: Optional[str] = None) -> None:
@@ -1214,15 +1214,15 @@ class SalesOrder:
         if press_enter:
             self.sap.send_vkey(vkey="Enter")
 
-    def va01_header(self, sold_to: str, ship_to: str, cust_ref: Optional[str] = None, cust_ref_date: Optional[str] = None, press_enter: Optional[bool] = True) -> None:
+    def va01_header(self, sold_to: str, ship_to: str, customer_reference: Optional[str] = None, customer_reference_date: Optional[str] = None, press_enter: Optional[bool] = True) -> None:
         self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUAGV-KUNNR", text=sold_to)
         self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUWEV-KUNNR", text=ship_to)
-        if cust_ref:
-            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=cust_ref)
+        if customer_reference:
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=customer_reference)
         else:
             self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=datetime.datetime.now().strftime("%Y%m%d%H%M%S%f"))
-        if cust_ref_date:
-            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/ctxtVBKD-BSTDK", text=cust_ref_date)
+        if customer_reference_date:
+            self.sap.input_text(id="/app/con[0]/ses[0]/wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/ctxtVBKD-BSTDK", text=customer_reference_date)
         if press_enter:
             self.sap.send_vkey(vkey="Enter")
         # Handle status msg about duplicate PO values
