@@ -18,7 +18,7 @@ class Gui:
      for interaction with the desktop client application.
     """
 
-    __version__ = '0.0.9'
+    __version__ = '0.0.10'
 
     def __init__(
         self, 
@@ -38,13 +38,15 @@ class Gui:
         session_number: Optional[int] = 0, 
         connection_name: Optional[str] = None, 
         date_format: Optional[str] = "%m/%d/%Y", 
-        close_sap_on_cleanup: Optional[bool] = True) -> None:
+        close_sap_on_cleanup: Optional[bool] = True, 
+        auto_documentation: Optional[bool] = True) -> None:
         atexit.register(self.cleanup)
         self.test_case_name: str = test_case
         self.exit_on_error: bool = exit_on_error
         self.screenshot_on_fail: bool = screenshot_on_fail
         self.screenshot_on_pass: bool = screenshot_on_pass
         self.close_sap_on_cleanup: bool = close_sap_on_cleanup
+        self.auto_documentation: bool = auto_documentation
         self.logger: Logger = Logger(log_name=self.test_case_name, log_path=log_path, log_file=log_file, verbosity=verbosity, format=log_format, file_mode=log_file_mode)
         self.__connection_number: int = connection_number
         self.__session_number: int = session_number
@@ -68,10 +70,12 @@ class Gui:
         self.screenshot.screenshot_directory = self.screenshot_dir
         self.screenshot.monitor = self.monitor
 
-        self.window: int = 0
+        self.__window_number: int = 0
+        self.window: win32com.client.CDispatch = None
         self.transaction: str = None
         self.sbar: win32com.client.CDispatch = None
         self.session_info: win32com.client.CDispatch = None
+        self.children: dict = {}
         self.text_elements = (
             "GuiTextField", 
             "GuiCTextField", 
@@ -132,7 +136,7 @@ class Gui:
     def is_element(self, element: str) -> bool:
         try:
             self.session.findById(element)
-            self.element = self.session.findById(id)
+            self.element = self.session.findById(element)
             return True
         except:
             self.logger.log.debug(f"Unable to locate element: {element} ")
@@ -142,16 +146,26 @@ class Gui:
     def take_screenshot(self, screenshot_name: Optional[str] = None, msg: Optional[str] = None) -> None:
         _msg = msg if msg is not None else ""
         _file_names = []
-        if not screenshot_name:
-            _file_names.append(self.screenshot.shot())
-        else:
-            _file_names = self.screenshot.shot(name=screenshot_name)
-        if _file_names:
-            for f in _file_names:
-                encoded_img = None
-                with open(f, "rb") as f_img:
-                    encoded_img = base64.b64encode(f_img.read())
-                self.logger.log.shot(f"{_msg}|{f}|{encoded_img}")
+        try:
+            try:
+                self.window.HardCopy(screenshot_name, "PNG")
+            except Exception as err:
+                self.logger.log.warning(f"Error while capturing screenshot with SAP GUi HardCopy module, falling back to mss module | {err}")
+                if not screenshot_name:
+                    _file_names.append(self.screenshot.shot())
+                else:
+                    _file_names = self.screenshot.shot(name=screenshot_name)
+        except Exception as err:
+            self.logger.log.error(f"Error while capturing screenshot with mss module | {err}")
+        try:
+            if _file_names:
+                for f in _file_names:
+                    encoded_img = None
+                    with open(f, "rb") as f_img:
+                        encoded_img = base64.b64encode(f_img.read())
+                    self.logger.log.shot(f"{_msg}|{f}|{encoded_img}")
+        except Exception as err:
+            self.logger.log.error(f"Error while encoding screenshot | {err}")
 
     def wait(self, value: Optional[float] = None) -> None:
         """
@@ -211,6 +225,69 @@ class Gui:
             self.take_screenshot(screenshot_name=ss_name, msg=msg)
         self.task_status = PASS
         self.passed_tasks.append(self.task)
+
+    def parse_children(self, parent: Optional[win32com.client.CDispatch] = None, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if parent and type(parent) is win32com.client.CDispatch:
+            try:
+                for i in parent.children:
+                    self.children[i.id] = {
+                        "id": i.id, 
+                        "text": i.text, 
+                        "type": i.type, 
+                        "name": i.name, 
+                        "screen_left": i.screenLeft, 
+                        "screen_top": i.screenTop, 
+                        "left": i.left, 
+                        "top": i.top, 
+                        "tooltip": i.tooltip, 
+                        "height": i.height, 
+                        "width": i.width
+                        }
+                    try:
+                        self.parse_children(parent=i)
+                    except:
+                        pass
+                return None
+            except Exception as err:
+                if is_task:
+                    if fail_on_error: 
+                        self.fail(msg=f"Unknown parent: {parent.id} -> {err}")
+                    else:
+                        self.task_passed(msg=f"Unknown parent: {parent.id}|{err}")
+        elif self.element and type(self.element) is win32com.client.CDispatch:
+            try:
+                for i in self.element.children:
+                    self.children[i.id] = {
+                        "id": i.id, 
+                        "text": i.text, 
+                        "type": i.type, 
+                        "name": i.name, 
+                        "screen_left": i.screenLeft, 
+                        "screen_top": i.screenTop, 
+                        "left": i.left, 
+                        "top": i.top, 
+                        "tooltip": i.tooltip, 
+                        "height": i.height, 
+                        "width": i.width
+                        }
+                    try:
+                        self.parse_children(parent=i)
+                    except:
+                        pass
+                return None
+            except Exception as err:
+                if is_task:
+                    if fail_on_error: 
+                        self.fail(msg=f"Unknown element: {self.element.id} -> {err}")
+                    else:
+                        self.task_passed(msg=f"Unknown element: {self.element.id}|{err}")
+        else:
+            if is_task:
+                if fail_on_error: 
+                    self.fail(msg=f"Not a parent or element or parent/element is not a valid win32com.client.CDispatch object -> {err}")
+                else:
+                    self.task_passed(msg=f"Not a parent or element or parent/element is not a valid win32com.client.CDispatch object|{err}")
+            return None
 
     def get_element_type(self, id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> str | None:
         """
@@ -283,7 +360,14 @@ class Gui:
                 self.sap_app = None
                 self.sap_gui = None
                 raise ConnectionError("SAP connection is listed as low speed, scripting not possible")
-            self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]/sbar")
+            self.window = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.__window_number}]")
+            if not type(self.window) == win32com.client.CDispatch:
+                self.connection = None
+                self.sap_app = None
+                self.sap_gui = None
+                self.session = None
+                raise ConnectionError("Unable to get window during session connection")
+            self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.__window_number}]/sbar")
             if not type(self.sbar) == win32com.client.CDispatch:
                 self.connection = None
                 self.sap_app = None
@@ -328,7 +412,8 @@ class Gui:
             if self.connection.Description == self.connection_name:
                 self.session = self.connection.children(self.session_number)
                 self.wait(2.0)
-                self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.session_number}]/wnd[{self.window}]/sbar")
+                self.window = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.__window_number}]")
+                self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.session_number}]/wnd[{self.__window_number}]/sbar")
                 self.session_info = self.session.info
                 self.task_passed()
             else:
@@ -352,6 +437,8 @@ class Gui:
             fail_on_error {Optional[bool]} -- If case should fail if there is an error during the execution (default: {True})
             is_task {Optional[bool]} -- If the current function call is a task called by the user (default: {True})
         """
+        if self.auto_documentation:
+            self.documentation(msg=f"Opening connection for {connection_name}")
         if is_task:
             self.task
         if not hasattr(self.sap_app, "OpenConnection"):
@@ -368,9 +455,11 @@ class Gui:
                 self.connection = self.sap_app.OpenConnection(self.connection_name, True)
                 self.session = self.connection.children(self.__session_number)
                 self.wait(1.0)
-                self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]/sbar")
+                self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.__window_number}]/sbar")
                 self.session_info = self.session.info
                 self.task_passed(ss_name="open_connection")
+                if self.auto_documentation:
+                    self.documentation(msg=f"Connection open for {connection_name}")
             except Exception as err:
                 _msg = f"Cannot open connection {self.connection_name}, please check connection name|{err}"
                 if is_task:
@@ -464,7 +553,8 @@ class Gui:
         if is_task:
             self.task
         try:
-            self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.window}]").maximize()
+            # self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.__window_number}]").maximize()
+            self.window.maximize()
             self.task_passed(msg="Maximize of SAP window successful", ss_name="maximize_window")
         except Exception as err:
             _msg = f"Unknown error while attempting to maximize SAP window.|{err}"
@@ -901,16 +991,6 @@ class Gui:
     def input_current_date(self, id: str, format: Optional[str] = "%m/%d/%Y") -> None:
         self.input_text(id=id, text=datetime.datetime.now().strftime(format))
 
-    # def maximize_window(self, window: Optional[int] = None) -> None:
-    #     if window:
-    #         self.window = window
-    #     try:
-    #         self.session.findById(f"wnd[{self.window}]").maximize()
-    #         self.wait()
-    #     except Exception as err:
-    #         self.take_screenshot(screenshot_name="maximize_window")
-    #         self.logger.log.error(f"Cannot maximize window wnd[{self.window}] -> {err}")
-
     def set_vertical_scroll(self, id: str, position: int) -> None:
         if self.is_element(id):
             self.session.findById(id).verticalScrollbar.position = position
@@ -1010,12 +1090,13 @@ class Gui:
                     self.logger.log.error(f"Cannot find given Vkey {vkey}, provide a valid Vkey number or combination")
                     self.fail()
         try:
-            self.session.findById(f"wnd[{self.window}]").sendVKey(vkey_id)
+            # self.session.findById(f"wnd[{self.__window_number}]").sendVKey(vkey_id)
+            self.window.sendVKey(vkey_id)
             self.wait()
             self.task_passed()
         except Exception as err:
             self.take_screenshot(screenshot_name="send_vkey_error")
-            self.logger.log.error(f"Cannot send Vkey to window wnd[{self.window}]]")
+            self.logger.log.error(f"Cannot send Vkey to window wnd[{self.__window_number}]]")
             self.fail()
 
     def select_context_menu_item(self, id: str, menu_id: str, item_id: str) -> None:
@@ -1188,7 +1269,30 @@ class Gui:
     
     def back(self) -> None:
         self.send_vkey(vkey="F3")
+    
+    def f8(self) -> None:
+        self.send_vkey(vkey="F8")
+    
+    def f5(self) -> None:
+        self.send_vkey(vkey="F5")
+    
+    def f6(self) -> None:
+        self.send_vkey(vkey="F6")
+    
+    def f7(self) -> None:
+        self.send_vkey(vkey="F7")
+    
+    def f4(self) -> None:
+        self.send_vkey(vkey="F4")
 
+    def f3(self) -> None:
+        self.send_vkey(vkey="F3")
+    
+    def f2(self) -> None:
+        self.send_vkey(vkey="F2")
+
+    def f1(self) -> None:
+        self.send_vkey(vkey="F1")
 
 class SalesOrder:
     def __init__(self, sap: Gui) -> None:
