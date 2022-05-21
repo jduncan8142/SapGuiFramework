@@ -1,3 +1,4 @@
+from optparse import Option
 from types import FunctionType
 import win32com.client
 import re
@@ -25,7 +26,7 @@ class Gui:
         test_case: Optional[str] = "My Test Case",
         exit_on_error: Optional[bool] = True, 
         screenshot_on_fail: Optional[bool] = True, 
-        screenshot_on_pass: Optional[bool] = True, 
+        screenshot_on_pass: Optional[bool] = False, 
         log_path: Optional[str] = None,
         log_file: Optional[str] = None, 
         verbosity: Optional[int] = None, 
@@ -192,7 +193,7 @@ class Gui:
         else:
             time.sleep(self.explicit_wait)
 
-    def fail(self, msg: Optional[str] = None, ss_name: Optional[str] = None) -> None:
+    def task_fail(self, msg: Optional[str] = None, ss_name: Optional[str] = None) -> None:
         """
         Called from other function responsible for executing tasks. Implements wait if explicit_wait is set and marks the task as PASS.
 
@@ -211,7 +212,7 @@ class Gui:
             self.test_case_failed = True
             sys.exit()
 
-    def task_passed(self, msg: Optional[str] = None, ss_name: Optional[str] = None) -> None:
+    def task_pass(self, msg: Optional[str] = None, ss_name: Optional[str] = None) -> None:
         """
         Called from other function responsible for executing test task. Implements wait if explicit_wait is set and marks the task as PASS.
 
@@ -225,6 +226,16 @@ class Gui:
             self.take_screenshot(screenshot_name=ss_name, msg=msg)
         self.task_status = PASS
         self.passed_tasks.append(self.task)
+    
+    def on_error(self, error: str, msg: str, task: bool, foe: bool, ss: str) -> None:
+        _msg = f"{msg}|{error}"
+        if task:
+            if foe:
+                self.task_fail(msg=_msg, ss_name=ss)
+            else:
+                self.task_pass(msg=_msg, ss_name=ss)
+        else:
+            self.logger.log.warning(_msg)
 
     def parse_children(self, parent: Optional[win32com.client.CDispatch] = None, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
         if parent and type(parent) is win32com.client.CDispatch:
@@ -251,9 +262,9 @@ class Gui:
             except Exception as err:
                 if is_task:
                     if fail_on_error: 
-                        self.fail(msg=f"Unknown parent: {parent.id} -> {err}")
+                        self.task_fail(msg=f"Unknown parent: {parent.id} -> {err}")
                     else:
-                        self.task_passed(msg=f"Unknown parent: {parent.id}|{err}")
+                        self.task_pass(msg=f"Unknown parent: {parent.id}|{err}")
         elif self.element and type(self.element) is win32com.client.CDispatch:
             try:
                 for i in self.element.children:
@@ -278,15 +289,15 @@ class Gui:
             except Exception as err:
                 if is_task:
                     if fail_on_error: 
-                        self.fail(msg=f"Unknown element: {self.element.id} -> {err}")
+                        self.task_fail(msg=f"Unknown element: {self.element.id} -> {err}")
                     else:
-                        self.task_passed(msg=f"Unknown element: {self.element.id}|{err}")
+                        self.task_pass(msg=f"Unknown element: {self.element.id}|{err}")
         else:
             if is_task:
                 if fail_on_error: 
-                    self.fail(msg=f"Not a parent or element or parent/element is not a valid win32com.client.CDispatch object -> {err}")
+                    self.task_fail(msg=f"Not a parent or element or parent/element is not a valid win32com.client.CDispatch object -> {err}")
                 else:
-                    self.task_passed(msg=f"Not a parent or element or parent/element is not a valid win32com.client.CDispatch object|{err}")
+                    self.task_pass(msg=f"Not a parent or element or parent/element is not a valid win32com.client.CDispatch object|{err}")
             return None
 
     def get_element_type(self, id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> str | None:
@@ -302,13 +313,13 @@ class Gui:
         try:
             _tmp = self.session.findById(id).type
             if is_task:
-                self.task_passed()
+                self.task_pass()
         except Exception as err:
             if is_task:
                 if fail_on_error: 
-                    self.fail(msg=f"Unknown element id: {id} -> {err}")
+                    self.task_fail(msg=f"Unknown element id: {id} -> {err}")
                 else:
-                    self.task_passed(msg=f"Unknown element id: {id}|{err}")
+                    self.task_pass(msg=f"Unknown element id: {id}|{err}")
         return _tmp
 
     def connect_to_session(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
@@ -383,14 +394,14 @@ class Gui:
                 self.session_info = None
                 raise ConnectionError("Unable to get session information")
             if is_task:
-                self.task_passed()
+                self.task_pass()
         except Exception as err:
             _msg = f"Unknown error while establishing connection with SAP GUI|{sys.exc_info()[0]}|{err}"
             if is_task:
                 if fail_on_error:
-                    self.fail(_msg)
+                    self.task_fail(_msg)
                 else:
-                    self.task_passed(_msg)
+                    self.task_pass(_msg)
             else:
                 self.logger.log.warning(_msg)
 
@@ -415,16 +426,16 @@ class Gui:
                 self.window = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.__window_number}]")
                 self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.session_number}]/wnd[{self.__window_number}]/sbar")
                 self.session_info = self.session.info
-                self.task_passed()
+                self.task_pass()
             else:
-                self.fail(msg=f"No existing connection for {self.connection_name} found.", ss_name="connect_to_existing_connection_error")
+                self.task_fail(msg=f"No existing connection for {self.connection_name} found.", ss_name="connect_to_existing_connection_error")
         except Exception as err:
             _msg = f"Unknown error while trying to establish existing connection for {self.connection_name}|{err}."
             if is_task:
                 if fail_on_error:
-                    self.fail(msg=_msg, ss_name="connect_to_existing_connection_error")
+                    self.task_fail(msg=_msg, ss_name="connect_to_existing_connection_error")
                 else:
-                    self.task_passed(msg=_msg, ss_name="connect_to_existing_connection_error")
+                    self.task_pass(msg=_msg, ss_name="connect_to_existing_connection_error")
             else:
                 self.logger.log.warning(_msg)
 
@@ -445,11 +456,11 @@ class Gui:
             try:
                 self.sap_gui = win32com.client.GetObject("SAPGUI")
                 if not type(self.sap_gui) == win32com.client.CDispatch:
-                    self.fail("Error while getting SAP GUI object using win32com.client")
+                    self.task_fail("Error while getting SAP GUI object using win32com.client")
                 self.sap_app = self.sap_gui.GetScriptingEngine
                 if not type(self.sap_app) == win32com.client.CDispatch:
                     self.sap_gui = None
-                    self.fail("Error while getting SAP scripting engine")
+                    self.task_fail("Error while getting SAP scripting engine")
                 if connection_name:
                     self.connection_name = connection_name
                 self.connection = self.sap_app.OpenConnection(self.connection_name, True)
@@ -457,16 +468,16 @@ class Gui:
                 self.wait(1.0)
                 self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.__window_number}]/sbar")
                 self.session_info = self.session.info
-                self.task_passed(ss_name="open_connection")
+                self.task_pass(ss_name="open_connection")
                 if self.auto_documentation:
                     self.documentation(msg=f"Connection open for {connection_name}")
             except Exception as err:
                 _msg = f"Cannot open connection {self.connection_name}, please check connection name|{err}"
                 if is_task:
                     if fail_on_error:
-                        self.fail(msg=_msg, ss_name="open_connection")
+                        self.task_fail(msg=_msg, ss_name="open_connection")
                     else:
-                        self.task_passed(msg=_msg, ss_name="open_connection")
+                        self.task_pass(msg=_msg, ss_name="open_connection")
                 else:
                     self.logger.log.warning(_msg)
 
@@ -505,16 +516,16 @@ class Gui:
         try:
             smd = self.get_status_msg_dict()
             if smd['messageType'] == "S":
-                self.task_passed(msg=f"Status is Success. MsgID & MsgNumber: {smd['messageId']}{smd['messageNumber']}, MsgType: {smd['messageType']}, Msg: {smd['message']} {smd['text']}", ss_name="assert_success_status_pass")
+                self.task_pass(msg=f"Status is Success. MsgID & MsgNumber: {smd['messageId']}{smd['messageNumber']}, MsgType: {smd['messageType']}, Msg: {smd['message']} {smd['text']}", ss_name="assert_success_status_pass")
             else:
-                self.fail(msg=f"Status is not equal 'S'. MsgID & MsgNumber: {smd['messageId']}{smd['messageNumber']}, MsgType: {smd['messageType']}, Msg: {smd['message']} {smd['text']}", ss_name="assert_success_status_fail")
+                self.task_fail(msg=f"Status is not equal 'S'. MsgID & MsgNumber: {smd['messageId']}{smd['messageNumber']}, MsgType: {smd['messageType']}, Msg: {smd['message']} {smd['text']}", ss_name="assert_success_status_fail")
         except Exception as err:
             _msg = f"Unknown error while attempting to check status.|{err}"
             if is_task:
                 if fail_on_error:
-                    self.fail(msg=_msg, ss_name="assert_success_status_fail")
+                    self.task_fail(msg=_msg, ss_name="assert_success_status_fail")
                 else:
-                    self.task_passed(msg=_msg, ss_name="assert_success_status_pass")
+                    self.task_pass(msg=_msg, ss_name="assert_success_status_pass")
             else:
                 self.logger.log.warning(_msg)
 
@@ -531,14 +542,14 @@ class Gui:
         try:
             self.connection.closeSession(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]")
             self.connection.closeConnection()
-            self.task_passed(msg="Exit successfully.", ss_name="exit")
+            self.task_pass(msg="Exit successfully.", ss_name="exit")
         except Exception as err:
             _msg = f"Unknown error while attempting to exit SAP session.|{err}"
             if is_task:
                 if fail_on_error:
-                    self.fail(msg=_msg, ss_name="exit")
+                    self.task_fail(msg=_msg, ss_name="exit")
                 else:
-                    self.task_passed(msg=_msg, ss_name="exit")
+                    self.task_pass(msg=_msg, ss_name="exit")
             else:
                 self.logger.log.warning(_msg)
 
@@ -555,14 +566,14 @@ class Gui:
         try:
             # self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.__window_number}]").maximize()
             self.window.maximize()
-            self.task_passed(msg="Maximize of SAP window successful", ss_name="maximize_window")
+            self.task_pass(msg="Maximize of SAP window successful", ss_name="maximize_window")
         except Exception as err:
             _msg = f"Unknown error while attempting to maximize SAP window.|{err}"
             if is_task:
                 if fail_on_error:
-                    self.fail(msg=_msg, ss_name="maximize_window")
+                    self.task_fail(msg=_msg, ss_name="maximize_window")
                 else:
-                    self.task_passed(msg=_msg, ss_name="maximize_window")
+                    self.task_pass(msg=_msg, ss_name="maximize_window")
             else:
                 self.logger.log.warning(_msg)
 
@@ -587,14 +598,14 @@ class Gui:
             self.open_connection(connection_name=self.connection_name, fail_on_error=False, is_task=False)
             self.wait(value=delay)
             self.maximize_window()
-            self.task_passed(msg="Successfully restart SAP session.", ss_name="restart_session")
+            self.task_pass(msg="Successfully restart SAP session.", ss_name="restart_session")
         except Exception as err:
             _msg = f"Unknown error while attempting to restart SAP session.|{err}"
             if is_task:
                 if fail_on_error:
-                    self.fail(msg=_msg, ss_name="restart_session")
+                    self.task_fail(msg=_msg, ss_name="restart_session")
                 else:
-                    self.task_passed(msg=_msg, ss_name="restart_session")
+                    self.task_pass(msg=_msg, ss_name="restart_session")
             else:
                 self.logger.log.warning(_msg)
 
@@ -621,13 +632,13 @@ class Gui:
         if not self.is_element(element=id):
             if is_task:
                 if fail_on_error:
-                    self.fail(msg=f"Wait For Element could not find element with id {id}", ss_name="wait_for_element_error")
+                    self.task_fail(msg=f"Wait For Element could not find element with id {id}", ss_name="wait_for_element_error")
                 else:
-                    self.task_passed(msg=f"Wait For Element could not find element with id {id}", ss_name="wait_for_element")
+                    self.task_pass(msg=f"Wait For Element could not find element with id {id}", ss_name="wait_for_element")
             else:
                 self.logger.log.warning(f"Wait For Element could not find element with id {id}")
         else:
-            self.task_passed(msg=f"Wait For Element with id {id} successful", ss_name="wait_for_element")
+            self.task_pass(msg=f"Wait For Element with id {id} successful", ss_name="wait_for_element")
 
     def get_statusbar_if_error(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> str | None:
         """
@@ -642,14 +653,14 @@ class Gui:
         try:
             if self.sbar.messageType == "E":
                 _tmp = f"{self.sbar.findById('pane[0]').text} -> Message no. {self.sbar.messageId.strip('')}:{self.sbar.messageNumber}"
-            self.task_passed(msg=f"get_statusbar_if_error was successful", ss_name="get_statusbar_if_error")
+            self.task_pass(msg=f"get_statusbar_if_error was successful", ss_name="get_statusbar_if_error")
         except Exception as err:
             _msg = f"Unhandled error while checking if statusbar had error msg.|{err}"
             if is_task:
                 if fail_on_error:
-                    self.fail(msg=_msg, ss_name="error_for_get_statusbar_if_error")
+                    self.task_fail(msg=_msg, ss_name="error_for_get_statusbar_if_error")
                 else:
-                    self.task_passed(msg=_msg, ss_name="error_for_get_statusbar_if_error")
+                    self.task_pass(msg=_msg, ss_name="error_for_get_statusbar_if_error")
             else:
                 self.log.warning(_msg)
         return _tmp
@@ -662,20 +673,21 @@ class Gui:
             self.wait(1.0)
             if (s_msg := str(self.sbar.findById('pane[0]').text).strip(" \n\r\t")) in self.transaction_does_not_exist_strings():
                 if fail_on_error:
-                    self.fail(msg=f"ValueError|{s_msg}", ss_name="start_transaction_error")
+                    self.task_fail(msg=f"ValueError|{s_msg}", ss_name="start_transaction_error")
                 else:
-                    self.task_passed(msg=f"ValueError|{s_msg}", ss_name="start_transaction")
+                    self.task_pass(msg=f"ValueError|{s_msg}", ss_name="start_transaction")
             else:
-                self.task_passed(msg=f"Started transaction {self.transaction} successfully|{s_msg}", ss_name="start_transaction")
+                self.task_pass(msg=f"Started transaction {self.transaction} successfully|{s_msg}", ss_name="start_transaction")
         except Exception as err:
             _msg = f"Unhandled error during start_transaction|{err}"
             if is_task:
                 if fail_on_error:
-                    self.fail(msg=_msg, ss_name="start_transaction_error")
+                    self.task_fail(msg=_msg, ss_name="start_transaction_error")
                 else:
-                    self.task_passed(msg=_msg, ss_name="start_transaction_error")
+                    self.task_pass(msg=_msg, ss_name="start_transaction_error")
             else:
                 self.logger.log.warning(_msg)
+        self.wait()
     
     start: FunctionType = start_transaction
     Start: FunctionType = start_transaction
@@ -685,92 +697,80 @@ class Gui:
         if is_task: self.task
         try:
             self.session.endTransaction()
-            self.task_passed()
+            self.task_pass()
         except Exception as err:
-            _msg = f"Error ending transaction|{err}"
-            if is_task:
-                if fail_on_error:
-                    self.fail(msg=_msg, ss_name="end_transaction_error")
-                else:
-                    self.task_passed(msg=_msg, ss_name="end_transaction_error")
-            else:
-                self.logger.log.warning(_msg)
+            self.on_error(err, "Error ending transaction", is_task, fail_on_error, ss="end_transaction_error")
+        self.wait()
     
     end: FunctionType = end_transaction
     End: FunctionType = end_transaction
     END: FunctionType = end_transaction
     
-    def send_command(self, command: str, fail_on_error: Optional[bool] = True) -> None:
+    def send_command(self, command: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
         try:
             self.session.sendCommand(command)
+            self.task_pass()
         except Exception as err:
-            if fail_on_error:
-                self.take_screenshot(screenshot_name="send_command_error")
-                self.logger.log.error(f"Error sending command {command}|{err}")
-                self.fail()
+            self.on_error(err, f"Error sending command {command}", is_task, fail_on_error, ss="send_command_error")
         self.wait()
-        self.task_passed()
 
     def click_element(self, id: str = None, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
-        if is_task:
-            self.task
+        if is_task: self.task
         try:
             if (element_type := self.get_element_type(id)) in ("GuiTab", "GuiMenu"):
                 self.session.findById(id).select()
             elif element_type == "GuiButton":
                 self.session.findById(id).press()
-            self.task_passed(msg=f"Click element: {id} successful", ss_name="click_element_success")
+            self.task_pass(msg=f"Click element: {id} successful", ss_name="click_element_success")
         except Exception as err:
-            _msg = f"Unknown error while attempting click_element on {id}.|{err}"
-            if is_task:
-                if fail_on_error:
-                    self.fail(msg=_msg, ss_name="click_element_error")
-                else:
-                    self.task_passed(msg=_msg, ss_name="click_element_pass_error")
-            else:
-                self.logger.log.warning(_msg)
+            self.on_error(err, f"Unknown error while attempting click_element on {id}", is_task, fail_on_error, ss="click_element_error")
+        self.wait()
     
-    click = click_element
+    click: FunctionType = click_element
 
-    def click_toolbar_button(self, table_id: str, button_id: str, fail_on_error: Optional[bool] = True) -> None:
-        self.element_should_be_present(table_id)
+    def click_toolbar_button(self, table_id: str, button_id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
         try:
+            self.element_should_be_present(table_id)
             self.session.findById(table_id).pressToolbarButton(button_id)
         except AttributeError:
             self.session.findById(table_id).pressButton(button_id)
         except Exception as err:
-            if fail_on_error:
-                self.take_screenshot(screenshot_name="click_toolbar_button_error")
-                self.logger.log.error(f"Cannot find Table ID/Button ID: {' / '.join([table_id, button_id])}  <-->  {err}")
-                self.fail()
+            self.on_error(err, f"Cannot find Table ID/Button ID: {' / '.join([table_id, button_id])}", is_task, fail_on_error, ss="click_toolbar_button_error")
         self.wait()
-        self.task_passed()
 
-    def doubleclick(self, id: str, item_id: str, column_id: str) -> None:
-        if (element_type := self.get_element_type(id)) == "GuiShell":
-            self.session.findById(id).doubleClickItem(item_id, column_id)
-        else:
-            self.take_screenshot(screenshot_name="doubleclick_element_error")
-            self.logger.log.error(f"You cannot use 'doubleclick element' on element type {element_type}")
-            self.fail()
+    def double_click(self, id: str, item_id: str, column_id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            if (element_type := self.get_element_type(id)) == "GuiShell":
+                self.session.findById(id).doubleClickItem(item_id, column_id)
+        except Exception as err:
+            self.on_error(err, f"You cannot use 'double_click element' of element type {element_type}", is_task, fail_on_error, ss="double_click_element_error")
         self.wait()
-        self.task_passed()
 
-    def assert_element_present(self, id: str, message: Optional[str] = None) -> None:
-        if not self.is_element(element=id):
-            self.take_screenshot(screenshot_name="assert_element_present_error")
-            self.logger.log.error(message if message is not None else f"Cannot find element {id}")
-            self.fail()
-        self.task_passed()
+    def assert_element_present(self, id: str, message: Optional[str] = None, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        self.wait()
+        _msg = message if message is not None else f"Cannot find element {id}"
+        try:
+            if not self.is_element(element=id):
+                self.on_error(None, _msg, is_task, fail_on_error, ss="assert_element_present_error")
+            self.task_pass()
+        except Exception as err:
+            self.on_error(err, _msg, is_task, fail_on_error, ss="assert_element_present_error")
     
-    def assert_string_has_numeric(self, text: str, len_value: Optional[int] = None, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> bool:
-        if is_task:
-            self.task
+    def assert_string_has_numeric(self, text: str, len_value: Optional[int] = None, message: Optional[str] = None, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> bool:
+        if is_task: self.task
+        self.wait()
+        _msg = message if message is not None else ""
         result = False
         try:
             matched_value = re.search("\d+", text).group(0)
         except AttributeError:
             matched_value = None
+        except Exception as err:
+            self.on_error(err, f"Unknown error while checking if string {text} has numeric value.{_msg}", is_task, fail_on_error, ss="assert_string_has_numeric_error")
         if len_value is not None:
             if matched_value is not None:
                 if len(matched_value) == len_value:
@@ -779,38 +779,40 @@ class Gui:
             if matched_value is not None:
                 result = True
         if result:
-            self.task_passed(msg=f"String {text} has numeric value: {matched_value}", ss_name="assert_string_has_numeric_pass")
+            _msg = message if message is not None else f"String {text} has numeric value: {matched_value}"
+            self.task_pass(msg=_msg, ss_name="assert_string_has_numeric_pass")
         else:
-            self.fail(msg=f"String {text} has no numeric value", ss_name="assert_string_has_numeric_fail")
+            _msg = message if message is not None else f"String {text} has no numeric value"
+            self.task_fail(msg=_msg, ss_name="assert_string_has_numeric_fail")
         return result
 
-    def assert_element_value(self, id: str, expected_value: str, message: Optional[str] = None) -> None:
-        if self.is_element(element=id):
-            actual_value = self.get_value(id=id)
-            self.session.findById(id).setfocus()
-            self.wait()
-            self.task_passed()
-        if (element_type := self.get_element_type(id)) in self.text_elements:
-            if expected_value != actual_value:
-                message = message if message is not None else f"Element value of {id} should be {expected_value}, but was {actual_value}"
-                self.take_screenshot(screenshot_name=f"{element_type}_error.jpg")
-                self.logger.log.error(f"AssertEqualError > Element value of {id} should be {expected_value}, but was {actual_value}")
-                self.fail()
-        elif element_type in ("GuiCheckBox", "GuiRadioButton"):
-            if expected_value := bool(expected_value):
-                if not actual_value:
-                    self.take_screenshot(screenshot_name=f"{element_type}_error")
-                    self.logger.log.error(f"AssertEqualError > Element value of {id} should be {expected_value}, but was {actual_value}")
-                    self.fail()
-            elif not expected_value:
-                if actual_value:
-                    self.take_screenshot(screenshot_name=f"{element_type}_error")
-                    self.logger.log.error(f"AssertEqualError > Element value of {id} should be {expected_value}, but was {actual_value}")
-                    self.fail()
-        else:
-            self.take_screenshot(screenshot_name=f"{element_type}_error")
-            self.logger.log.error(f"AssertEqualError > Element value of {id} should be {expected_value}, but was {actual_value}")
-            self.fail()
+    def assert_element_value(self, id: str, expected_value: str, message: Optional[str] = None, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        self.wait()
+        try:
+            if self.is_element(element=id):
+                actual_value = self.get_value(id=id)
+                self.session.findById(id).setfocus()
+                self.task_pass()
+            if (element_type := self.get_element_type(id)) in self.text_elements:
+                if expected_value != actual_value:
+                    _msg = message if message is not None else f"Element value of {id} should be {expected_value}, but was {actual_value}"
+                    self.on_error(None, _msg, is_task, fail_on_error, ss=f"{element_type}_error")
+            elif element_type in ("GuiCheckBox", "GuiRadioButton"):
+                if expected_value := bool(expected_value):
+                    if not actual_value:
+                        _msg = message if message is not None else f"Element value of {id} should be {expected_value}, but was {actual_value}"
+                        self.on_error(None, _msg, is_task, fail_on_error, ss=f"{element_type}_error")
+                elif not expected_value:
+                    if actual_value:
+                        _msg = message if message is not None else f"Element value of {id} should be {expected_value}, but was {actual_value}"
+                        self.on_error(None, _msg, is_task, fail_on_error, ss=f"{element_type}_error")
+            else:
+                _msg = message if message is not None else f"Element value of {id} should be {expected_value}, but was {actual_value}"
+                self.on_error(None, _msg, is_task, fail_on_error, ss=f"{element_type}_error")
+        except Exception as err:
+            _msg = message if message is not None else ""
+            self.on_error(err, _msg, is_task, fail_on_error, ss="assert_element_value_error")
     
     assert_element_value_equal = assert_element_value
 
@@ -819,119 +821,128 @@ class Gui:
             actual_value = self.get_value(id=id)
             self.session.findById(id).setfocus()
             self.wait()
-            self.task_passed()
+            self.task_pass()
         if (element_type := self.get_element_type(id)) in self.text_elements:
             if expected_value == actual_value:
                 message = message if message is not None else f"Element value of {id} should not be equal to {expected_value}"
                 self.take_screenshot(screenshot_name=f"{element_type}_error")
                 self.logger.log.error(f"AssertNotEqualError > Element value of {id} should not be equal to {expected_value}")
-                self.fail()
+                self.task_fail()
         elif element_type in ("GuiCheckBox", "GuiRadioButton"):
             if expected_value := bool(expected_value):
                 if not actual_value:
                     self.take_screenshot(screenshot_name=f"{element_type}_error")
                     self.logger.log.error(f"AssertNotEqualError > Element value of {id} should not be equal to {expected_value}")
-                    self.fail()
+                    self.task_fail()
             elif not expected_value:
                 if actual_value:
                     self.take_screenshot(screenshot_name=f"{element_type}_error")
                     self.logger.log.error(f"AssertNotEqualError > Element value of {id} should not be equal to {expected_value}")
-                    self.fail()
+                    self.task_fail()
         else:
             self.take_screenshot(screenshot_name=f"{element_type}_error")
             self.logger.log.error(f"AssertNotEqualError > Element value of {id} should not be equal to {expected_value}")
-            self.fail()
+            self.task_fail()
 
     def assert_element_value_contains(self, id: str, expected_value: str, message: Optional[str] = None) -> None:
         if self.is_element(element=id):
             actual_value = self.get_value(id=id)
             self.session.findById(id).setfocus()
             self.wait()
-            self.task_passed()
+            self.task_pass()
         if (element_type := self.get_element_type(id)) in self.text_elements:
             if expected_value != actual_value:
                 message = message if message is not None else f"Element value of {id} does not contain {expected_value} but was {actual_value}"
                 self.take_screenshot(screenshot_name=f"{element_type}_error")
                 self.logger.log.error(f"AssertContainsError > {message}")
-                self.fail()
+                self.task_fail()
         else:
             self.take_screenshot(screenshot_name=f"{element_type}_error")
             self.logger.log.error(f"AssertContainsError > Element value of {id} does not contain {expected_value}, but was {actual_value}")
-            self.fail()
+            self.task_fail()
         
 
-    def get_cell_value(self, table_id: str, row_num: int, col_id: str) -> str | None:
+    def get_cell_value(self, table_id: str, row_num: int, col_id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> str | None:
+        if is_task: self.task
+        self.wait()
         if self.is_element(element=table_id):
             try:
                 _value = self.session.findById(table_id).getCellValue(row_num, col_id)
-                self.task_passed()
+                self.task_pass()
                 return _value
             except Exception as err:
-                self.take_screenshot(screenshot_name="get_cell_value_error")
-                self.logger.log.error(f"Cannot find cell value for table: {table_id}, row: {row_num}, and column: {col_id} -> {err}")
-                self.fail()
+                self.on_error(err, f"Cannot find cell value for table: {table_id}, row: {row_num}, and column: {col_id}", is_task, fail_on_error, ss="get_cell_value_error")
 
     def set_combobox(self, id: str, key: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
-        if (element_type := self.get_element_type(id)) == "GuiComboBox":
-            self.session.findById(id).key = key
-            self.logger.log.info(f"ComboBox value {key} selected from {id}")
-            self.wait()
-            self.task_passed()
-        else:
-            self.take_screenshot(screenshot_name="set_combobox_error")
-            self.logger.log.error(f"Element type {element_type} for element {id} has no set key method.")
-            self.fail()
+        if is_task: self.task
+        try:
+            if (element_type := self.get_element_type(id)) == "GuiComboBox":
+                self.session.findById(id).key = key
+                self.logger.log.info(f"ComboBox value {key} selected from {id}")
+                self.task_pass()
+            else:
+                self.on_error(None, f"Element type {element_type} for element {id} has no set key method.", is_task, fail_on_error, ss="set_combobox_error")
+        except Exception as err:
+            self.on_error(err, f"Unknown error while setting ComboBox value {key} for {id}", is_task, fail_on_error, ss="set_combobox_error")
+        self.wait()
     
     combobox = set_combobox
     set_dropdown = set_combobox
 
-    def get_element_location(self, id: str) -> tuple[int] | None:
-        _location = (self.session.findById(id).screenLeft, self.session.findById(id).screenTop) if self.is_element(element=id) else None
-        if _location:
-            self.task_passed()
-        else:
-            self.fail()
+    def get_element_location(self, id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> tuple[int] | None:
+        if is_task: self.task
+        self.wait()
+        _location = None
+        try:
+            _location = (self.session.findById(id).screenLeft, self.session.findById(id).screenTop) if self.is_element(element=id) else None
+            if _location:
+                self.task_pass()
+            else:
+                self.task_fail()
+        except Exception as err:
+            self.on_error(err, f"Unknown error while getting element location for {id}", is_task, fail_on_error, ss="get_element_location_error")
+        return _location
 
     def get_element_type(self, id) -> Any:
         try:
             _type = self.session.findById(id).type
-            self.task_passed()
+            self.task_pass()
             return _type
         except Exception as err:
             self.take_screenshot(screenshot_name="get_element_type_error")
             self.logger.log.error(f"Cannot find element type for id: {id} -> {err}")
-            self.fail()
+            self.task_fail()
 
     def get_row_count(self, table_id) -> int:
         try:
             _count = self.session.findById(table_id).rowCount if self.is_element(element=table_id) else 0
-            self.task_passed()
+            self.task_pass()
             return _count
         except Exception as err:
             self.take_screenshot(screenshot_name="get_row_count_error")
             self.logger.log.error(f"Cannot find row count for table: {table_id} -> {err}")
-            self.fail()
+            self.task_fail()
 
     def get_scroll_position(self, id: str) -> int:
         self.wait()
         try:
             _position = int(self.session.findById(id).verticalScrollbar.position) if self.is_element(element=id) else 0
-            self.task_passed()
+            self.task_pass()
             return _position
         except Exception as err:
             self.take_screenshot(screenshot_name="get_scroll_position_error")
             self.logger.log.error(f"Cannot get scrollbar position for: {id} -> {err}")
-            self.fail()
+            self.task_fail()
 
     def get_window_title(self, id: str) -> str:
         try:
             _title =  self.session.findById(id).text if self.is_element(element=id) else ""
-            self.task_passed()
+            self.task_pass()
             return _title
         except Exception as err:
             self.take_screenshot(screenshot_name="get_window_title_error")
             self.logger.log.error(f"Cannot find window with locator {id} -> {err}")
-            self.fail()
+            self.task_fail()
 
     def get_value(self, id: str, exit_on_error: Optional[bool] = True) -> Any:
         try:
@@ -946,14 +957,14 @@ class Gui:
                 self.take_screenshot(screenshot_name="get_value_warning")
                 self.logger.log.error(f"Cannot get value for element type {element_type} for id {id}")
             if _value:
-                self.task_passed()
+                self.task_pass()
                 return _value
             else:
                 return None
         except Exception as err:
             self.take_screenshot(screenshot_name="get_value_error.jpg")
             self.logger.log.error(f"Cannot get value for element type {element_type} for id {id} -> {err}")
-            self.fail(exit_on_error=exit_on_error)
+            self.task_fail(exit_on_error=exit_on_error)
 
     def input_text(self, id: str, text: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
         if is_task:
@@ -963,11 +974,11 @@ class Gui:
             if element_type != "GuiPasswordField":
                 self.logger.log.info(f"Input {text} into text field {id}")
             self.wait()
-            self.task_passed(msg="", ss_name="")
+            self.task_pass(msg="", ss_name="")
         else:
             self.take_screenshot(screenshot_name="input_text_error")
             self.logger.log.error(f"Cannot use keyword 'input text' for element type {element_type}")
-            self.fail()
+            self.task_fail()
     
     text = input_text
 
@@ -995,57 +1006,57 @@ class Gui:
         if self.is_element(id):
             self.session.findById(id).verticalScrollbar.position = position
             self.wait()
-            self.task_passed()
+            self.task_pass()
         else:
-            self.fail()
+            self.task_fail()
 
     def set_horizontal_scroll(self, id: str, position: int) -> None:
         if self.is_element(id):
             self.session.findById(id).horizontalScrollbar.position = position
             self.wait()
-            self.task_passed()
+            self.task_pass()
         else:
-            self.fail()
+            self.task_fail()
 
     def get_vertical_scroll(self, id: str) -> int | None:
         try:
             _vs = self.session.findById(id).verticalScrollbar.position if self.is_element(id) else None
-            self.task_passed()
+            self.task_pass()
             return _vs
         except Exception as err:
             self.take_screenshot(screenshot_name="get_vertical_scroll")
             self.logger.log.error(f"Cannot get vertical scroll position -> {err}")
-            self.fail()
+            self.task_fail()
 
     def get_horizontal_scroll(self, id: str) -> int | None:
         try:
             _hs = self.session.findById(id).horizontalScrollbar.position if self.is_element(id) else None
-            self.task_passed()
+            self.task_pass()
             return _hs
         except Exception as err:
             self.take_screenshot(screenshot_name="get_horizontal_scroll")
             self.logger.log.error(f"Cannot get horizontal scroll position -> {err}")
-            self.fail()
+            self.task_fail()
 
     def select_checkbox(self, id: str) -> None:
         if (element_type := self.get_element_type(id)) == "GuiCheckBox":
             self.session.findById(id).selected = True
             self.wait()
-            self.task_passed()
+            self.task_pass()
         else:
             self.take_screenshot(screenshot_name="select_checkbox_error")
             self.logger.log.error(f"Cannot use keyword 'select checkbox' for element type {element_type}")
-            self.fail()
+            self.task_fail()
 
     def unselect_checkbox(self, id: str) -> None:
         if (element_type := self.get_element_type(id)) == "GuiCheckBox":
             self.session.findById(id).selected = False
             self.wait()
-            self.task_passed()
+            self.task_pass()
         else:
             self.take_screenshot(screenshot_name="select_checkbox_error")
             self.logger.log.error(f"Cannot use keyword 'unselect checkbox' for element type {element_type}")
-            self.fail()
+            self.task_fail()
 
     def set_cell_value(self, table_id, row_num, col_id, text):
         if self.is_element(element=table_id):
@@ -1053,7 +1064,7 @@ class Gui:
                 self.session.findById(table_id).modifyCell(row_num, col_id, text)
                 self.logger.log.info(f"Input {text} into cell ({row_num}, {col_id})")
                 self.wait()
-                self.task_passed()
+                self.task_pass()
             except Exception as err:
                 self.take_screenshot(screenshot_name="set_cell_value_error.jpg")
                 self.logger.log.error(f"Failed entering {text} into cell ({row_num}, {col_id}) -> {err}")
@@ -1088,16 +1099,16 @@ class Gui:
                     vkey_id = 12
                 else:
                     self.logger.log.error(f"Cannot find given Vkey {vkey}, provide a valid Vkey number or combination")
-                    self.fail()
+                    self.task_fail()
         try:
             # self.session.findById(f"wnd[{self.__window_number}]").sendVKey(vkey_id)
             self.window.sendVKey(vkey_id)
             self.wait()
-            self.task_passed()
+            self.task_pass()
         except Exception as err:
             self.take_screenshot(screenshot_name="send_vkey_error")
             self.logger.log.error(f"Cannot send Vkey to window wnd[{self.__window_number}]]")
-            self.fail()
+            self.task_fail()
 
     def select_context_menu_item(self, id: str, menu_id: str, item_id: str) -> None:
         if self.is_element(element=id):
@@ -1105,26 +1116,26 @@ class Gui:
                 self.session.findById(id).nodeContextMenu(menu_id)
                 self.session.findById(id).selectContextMenuItem(item_id)
                 self.wait()
-                self.task_passed()
+                self.task_pass()
             elif hasattr(self.session.findById(id), "pressContextButton"):
                 self.session.findById(id).pressContextButton(menu_id)
                 self.session.findById(id).selectContextMenuItem(item_id)
                 self.wait()
-                self.task_passed()
+                self.task_pass()
             else:
                 self.take_screenshot(screenshot_name="select_context_menu_item_error")
                 self.logger.log.error(f"Cannot use keyword 'Select Context Menu Item' with element type {self.get_element_type(id)}")
-                self.fail()
+                self.task_fail()
 
     def select_from_list_by_label(self, id: str, value: str) -> None:
         if (element_type := self.get_element_type(id)) == "GuiComboBox":
             self.session.findById(id).key = value
             self.wait()
-            self.task_passed()
+            self.task_pass()
         else:
             self.take_screenshot(screenshot_name="select_from_list_by_label_error")
             self.logger.log.error(f"Cannot use keyword Select From List By Label with element type {element_type}")
-            self.fail()
+            self.task_fail()
 
     def select_node(self, tree_id: str, node_id: str, expand: bool = False):
         if self.is_element(element=tree_id):
@@ -1135,45 +1146,45 @@ class Gui:
                 except:
                     self.take_screenshot(screenshot_name="expand_node")
                     self.logger.log.error(f"Unable to expand node {node_id} from tree {tree_id}")
-                    self.fail()
+                    self.task_fail()
             self.wait()
-            self.task_passed()
+            self.task_pass()
         else:
             self.take_screenshot(screenshot_name="select_node")
             self.logger.log.error(f"Unable to select node {node_id} from tree {tree_id}")
-            self.fail()
+            self.task_fail()
 
     def select_node_link(self, tree_id: str, link_id1: str, link_id2: str) -> None:
         if self.is_element(element=tree_id):
             self.session.findById(tree_id).selectItem(link_id1, link_id2)
             self.session.findById(tree_id).clickLink(link_id1, link_id2)
             self.wait()
-            self.task_passed()
+            self.task_pass()
         else:
             self.take_screenshot(screenshot_name="select_node_link")
             self.logger.log.error(f"Unable to select node {link_id1} and click link {link_id2} from tree {tree_id}")
-            self.fail()
+            self.task_fail()
 
     def select_radio_button(self, id: str) -> None:
         if (element_type := self.get_element_type(id)) == "GuiRadioButton":
             self.session.findById(id).selected = True
             self.wait()
-            self.task_passed()
+            self.task_pass()
         else:
             self.take_screenshot(screenshot_name="select_radio_button_error")
             self.logger.log.error(f"Cannot use keyword Select Radio Button with element type {element_type}")
-            self.fail()
+            self.task_fail()
 
     def select_table_column(self, table_id: str, column_id: str) -> None:
         if self.is_element(element=table_id):
             try:
                 self.session.findById(table_id).selectColumn(column_id)
                 self.wait()
-                self.task_passed()
+                self.task_pass()
             except Exception as err:
                 self.take_screenshot(screenshot_name="select_table_column_error")
                 self.logger.log.error(f"Cannot find column ID: {column_id} for table {table_id}")
-                self.fail()
+                self.task_fail()
     
     def dump_grid_view(self, table_id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True):
         _rows = []
@@ -1189,14 +1200,14 @@ class Gui:
                     _cells.append(_table.getCellValue(row, column))
                 _rows.append(_cells)
             if is_task:
-                self.task_passed(msg=f"GridView dump successfully", ss_name="dump_grid_view_pass_success")
+                self.task_pass(msg=f"GridView dump successfully", ss_name="dump_grid_view_pass_success")
         except Exception as err:
             _msg = f"Unknown error in dump_grid_view|{err}"
             if is_task:
                 if fail_on_error:
-                    self.fail(msg=_msg, ss_name="dump_grid_view_error")
+                    self.task_fail(msg=_msg, ss_name="dump_grid_view_error")
                 else:
-                    self.task_passed(msg=_msg, ss_name="dump_grid_view_pass_error")
+                    self.task_pass(msg=_msg, ss_name="dump_grid_view_pass_error")
             else:
                 self.logger.log.warning(_msg)
         return _rows
@@ -1206,16 +1217,16 @@ class Gui:
             id = self.session.findById(table_id).getAbsoluteRow(row_num)
             id.selected = -1
             self.wait()
-            self.task_passed()
+            self.task_pass()
         else:
             try:
                 self.session.findById(table_id).selectedRows = row_num
                 self.wait()
-                self.task_passed()
+                self.task_pass()
             except Exception as err:
                 self.take_screenshot(screenshot_name="select_table_row_error")
                 self.logger.log.error(f"Cannot use keyword Select Table Row for element type {element_type} -> {err}")
-                self.fail()
+                self.task_fail()
 
     def try_and_continue(self, func_name: str, *args, **kwargs) -> Any:
         result = None
@@ -1234,13 +1245,13 @@ class Gui:
             for i in range(rows.count):
                 row = rows.elementAt(i)
                 if row.elementAt(column_index).text == "":
-                    self.task_passed()
+                    self.task_pass()
                     return i
-            self.fail()
+            self.task_fail()
         except Exception as err:
             self.take_screenshot(screenshot_name="get_next_empty_table_row")
             self.logger.log.error(f"Cannot get next empty table row for table {table_id} -> {err}")
-            self.fail()
+            self.task_fail()
     
     def insert_in_table(self, table_id: str, value: str, column_index: Optional[int] = 0, row_index: Optional[int] = None) -> None:
         if not row_index:
@@ -1251,15 +1262,15 @@ class Gui:
         if (element_type := cell.type) == "GuiComboBox":
             cell.key = value
             self.wait()
-            self.task_passed()
+            self.task_pass()
         elif element_type == "GuiCTextField":
             cell.text = value
             self.wait()
-            self.task_passed()
+            self.task_pass()
         else:
             self.take_screenshot(screenshot_name="insert_in_table")
             self.logger.log.error(f"Cannot inset {value} in table {table_id}")
-            self.fail()
+            self.task_fail()
     
     def enter(self) -> None:
         self.send_vkey(vkey="ENTER")
