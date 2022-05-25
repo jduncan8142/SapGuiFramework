@@ -1,4 +1,3 @@
-from optparse import Option
 from types import FunctionType
 import win32com.client
 import re
@@ -10,6 +9,7 @@ from typing import Optional, Any
 from Utilities.Utilities import *
 from SAPLogger.SapLogger import Logger
 from SapObject.SapObject import SapObject
+from Decorators import *
 
 
 class Gui:
@@ -19,7 +19,8 @@ class Gui:
      for interaction with the desktop client application.
     """
 
-    __version__ = '0.0.10'
+    __version__: str = '0.0.10'
+    __explicit_wait__: float = 0.0
 
     def __init__(
         self, 
@@ -41,7 +42,9 @@ class Gui:
         date_format: Optional[str] = "%m/%d/%Y", 
         close_sap_on_cleanup: Optional[bool] = True, 
         auto_documentation: Optional[bool] = True) -> None:
+
         atexit.register(self.cleanup)
+
         self.test_case_name: str = test_case
         self.exit_on_error: bool = exit_on_error
         self.screenshot_on_fail: bool = screenshot_on_fail
@@ -51,7 +54,6 @@ class Gui:
         self.logger: Logger = Logger(log_name=self.test_case_name, log_path=log_path, log_file=log_file, verbosity=verbosity, format=log_format, file_mode=log_file_mode)
         self.__connection_number: int = connection_number
         self.__session_number: int = session_number
-        self.explicit_wait: float = explicit_wait
         self.connection_name: str = connection_name if connection_name is not None else ""
         self.sap_gui: win32com.client.CDispatch = None
         self.sap_app: win32com.client.CDispatch = None
@@ -62,12 +64,15 @@ class Gui:
         self.screenshot: Screenshot = Screenshot()
         self.date_format: str = str(date_format)
 
+        __explicit_wait__ = explicit_wait
+
         if not os.path.exists(self.screenshot_dir):
             self.logger.log.debug(f"Screenshot directory {self.screenshot_dir} does not exist, creating it.")
             try:
                 os.makedirs(self.screenshot_dir)
             except Exception as err:
                 self.logger.log.error(f"Unable to create screenshot directory {self.screenshot_dir} > {err}")
+        
         self.screenshot.screenshot_directory = self.screenshot_dir
         self.screenshot.monitor = self.monitor
 
@@ -77,18 +82,6 @@ class Gui:
         self.sbar: win32com.client.CDispatch = None
         self.session_info: win32com.client.CDispatch = None
         self.children: dict = {}
-        self.text_elements = (
-            "GuiTextField", 
-            "GuiCTextField", 
-            "GuiPasswordField", 
-            "GuiLabel", 
-            "GuiTitlebar", 
-            "GuiStatusbar", 
-            "GuiButton", 
-            "GuiTab", 
-            "GuiShell", 
-            "GuiStatusPane"
-            )
         self.task_status: str = None
         self.test_status: str = None
         self.test_case_failed: bool = False
@@ -144,6 +137,7 @@ class Gui:
             pass
         return False
 
+    @explicit_wait_before(wait_time=__explicit_wait__)
     def take_screenshot(self, screenshot_name: Optional[str] = None, msg: Optional[str] = None) -> None:
         _msg = msg if msg is not None else ""
         _file_names = []
@@ -168,39 +162,8 @@ class Gui:
         except Exception as err:
             self.logger.log.error(f"Error while encoding screenshot | {err}")
 
-    def wait(self, value: Optional[float] = None) -> None:
-        """
-        Waits for the number of seconds given by value parameter or if value is None the explicit_wait value is used.
-
-        Keyword Arguments:
-            value {Optional[float]} -- Number of seconds to wait. (default: {None})
-        """
-        if value:
-            if type(value) is float | int:
-                time.sleep(float(value))
-            elif type(value) is str:
-                _value = None
-                try:
-                    if "," in value:
-                        value = value.replace(",", "").strip()
-                    if "." in value:
-                        _value = float(value)
-                    else:
-                        _value = int(value)
-                    time.sleep(float(_value))
-                except ValueError:
-                    self.logger.log.error(f"Unable to convert to int or float for {value} during call to wait, skipping wait timer")
-        else:
-            time.sleep(self.explicit_wait)
-
+    @explicit_wait_before(wait_time=__explicit_wait__)
     def task_fail(self, msg: Optional[str] = None, ss_name: Optional[str] = None) -> None:
-        """
-        Called from other function responsible for executing tasks. Implements wait if explicit_wait is set and marks the task as PASS.
-
-        Keyword Arguments:
-            msg {Optional[str]} -- Message to be logged as error (default: {None})
-        """
-        self.wait()
         if msg:
             self.logger.log.error(msg)
         if self.screenshot_on_fail:
@@ -212,20 +175,32 @@ class Gui:
             self.test_case_failed = True
             sys.exit()
 
+    @explicit_wait_before(wait_time=__explicit_wait__)
     def task_pass(self, msg: Optional[str] = None, ss_name: Optional[str] = None) -> None:
-        """
-        Called from other function responsible for executing test task. Implements wait if explicit_wait is set and marks the task as PASS.
-
-        Keyword Arguments:
-            msg {Optional[str]} -- Message to be logged as info (default: {None})
-        """
-        self.wait()
         if msg:
             self.logger.log.info(msg)
         if self.screenshot_on_pass:
             self.take_screenshot(screenshot_name=ss_name, msg=msg)
         self.task_status = PASS
         self.passed_tasks.append(self.task)
+    
+    def pass_fail(self, indicator: Any, template: list[Any], msg_pass: str, msg_fail: str, foe: bool, ss_pass: str, ss_fail: str, invert: Optional[bool] = False):
+        if not invert:
+            if indicator in template:
+                self.task_pass(msg=msg_pass, ss_name=ss_pass)
+            else:
+                if foe:
+                    self.task_fail(msg=msg_fail, ss_name=ss_fail)
+                else:
+                    self.task_pass(msg=msg_pass, ss_name=ss_pass)
+        if invert:
+            if indicator not in template:
+                self.task_pass(msg=msg_pass, ss_name=ss_pass)
+            else:
+                if foe:
+                    self.task_fail(msg=msg_fail, ss_name=ss_fail)
+                else:
+                    self.task_pass(msg=msg_pass, ss_name=ss_pass)
     
     def on_error(self, error: str, msg: str, task: bool, foe: bool, ss: str) -> None:
         _msg = f"{msg}|{error}"
@@ -301,15 +276,8 @@ class Gui:
             return None
 
     def get_element_type(self, id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> str | None:
-        """
-        Get type information for SAP GUI element.
-
-        Returns:
-            SAP GUI Element type -- Type of SAP GUI element.
-        """
         _tmp = None
-        if is_task:
-            self.task
+        if is_task: self.task
         try:
             _tmp = self.session.findById(id).type
             if is_task:
@@ -509,25 +477,6 @@ class Gui:
         except:
             txt = ""
         return {"messageId": msg_id, "messageNumber": msg_number, "messageType": msg_type, "message": msg, "text": txt}
-    
-    def assert_success_status(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
-        if is_task:
-            self.task
-        try:
-            smd = self.get_status_msg_dict()
-            if smd['messageType'] == "S":
-                self.task_pass(msg=f"Status is Success. MsgID & MsgNumber: {smd['messageId']}{smd['messageNumber']}, MsgType: {smd['messageType']}, Msg: {smd['message']} {smd['text']}", ss_name="assert_success_status_pass")
-            else:
-                self.task_fail(msg=f"Status is not equal 'S'. MsgID & MsgNumber: {smd['messageId']}{smd['messageNumber']}, MsgType: {smd['messageType']}, Msg: {smd['message']} {smd['text']}", ss_name="assert_success_status_fail")
-        except Exception as err:
-            _msg = f"Unknown error while attempting to check status.|{err}"
-            if is_task:
-                if fail_on_error:
-                    self.task_fail(msg=_msg, ss_name="assert_success_status_fail")
-                else:
-                    self.task_pass(msg=_msg, ss_name="assert_success_status_pass")
-            else:
-                self.logger.log.warning(_msg)
 
     def exit(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
         """
@@ -621,8 +570,7 @@ class Gui:
             fail_on_error {Optional[bool]} -- If case should fail if there is an error during the execution (default: {True})
             is_task {Optional[bool]} -- If the current function call is a task called by the user (default: {True})
         """
-        if is_task:
-            self.task
+        if is_task: self.task
         t = Timer()
         while True:
             if not self.is_element(element=id) and t.elapsed() <= timeout:
@@ -665,34 +613,31 @@ class Gui:
                 self.log.warning(_msg)
         return _tmp
 
+    @explicit_wait_after(wait_time=__explicit_wait__)
     def start_transaction(self, transaction: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
         if is_task: self.task
         try:
             self.transaction = transaction.upper()
             self.session.startTransaction(self.transaction)
-            self.wait(1.0)
-            if (s_msg := str(self.sbar.findById('pane[0]').text).strip(" \n\r\t")) in self.transaction_does_not_exist_strings():
-                if fail_on_error:
-                    self.task_fail(msg=f"ValueError|{s_msg}", ss_name="start_transaction_error")
-                else:
-                    self.task_pass(msg=f"ValueError|{s_msg}", ss_name="start_transaction")
-            else:
-                self.task_pass(msg=f"Started transaction {self.transaction} successfully|{s_msg}", ss_name="start_transaction")
+            s_msg = str(self.sbar.findById('pane[0]').text).strip(" \n\r\t")
+            _template = [i for i in self.transaction_does_not_exist_strings()]
+            self.pass_fail(
+                indicator=s_msg, 
+                template=_template, 
+                msg_pass=f"Started transaction {self.transaction} successfully|{s_msg}", 
+                msg_fail=f"ValueError|{s_msg}", 
+                foe=fail_on_error, 
+                ss_pass="start_transaction", 
+                ss_fail="start_transaction_error", 
+                invert=True)
         except Exception as err:
-            _msg = f"Unhandled error during start_transaction|{err}"
-            if is_task:
-                if fail_on_error:
-                    self.task_fail(msg=_msg, ss_name="start_transaction_error")
-                else:
-                    self.task_pass(msg=_msg, ss_name="start_transaction_error")
-            else:
-                self.logger.log.warning(_msg)
-        self.wait()
+            self.on_error(err, f"Unhandled error while starting transaction {transaction}|{err}", is_task, fail_on_error, ss="start_transaction_error")
     
     start: FunctionType = start_transaction
     Start: FunctionType = start_transaction
     START: FunctionType = start_transaction
     
+    @explicit_wait_after(wait_time=__explicit_wait__)
     def end_transaction(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
         if is_task: self.task
         try:
@@ -700,12 +645,12 @@ class Gui:
             self.task_pass()
         except Exception as err:
             self.on_error(err, "Error ending transaction", is_task, fail_on_error, ss="end_transaction_error")
-        self.wait()
     
     end: FunctionType = end_transaction
     End: FunctionType = end_transaction
     END: FunctionType = end_transaction
     
+    @explicit_wait_after(wait_time=__explicit_wait__)
     def send_command(self, command: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
         if is_task: self.task
         try:
@@ -713,45 +658,631 @@ class Gui:
             self.task_pass()
         except Exception as err:
             self.on_error(err, f"Error sending command {command}", is_task, fail_on_error, ss="send_command_error")
-        self.wait()
 
+    @explicit_wait_after(wait_time=__explicit_wait__)
     def click_element(self, id: str = None, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
         if is_task: self.task
         try:
             if (element_type := self.get_element_type(id)) in ("GuiTab", "GuiMenu"):
                 self.session.findById(id).select()
+                self.task_pass(msg=f"Clicking element: {id} was successful", ss_name="click_element_success")
             elif element_type == "GuiButton":
                 self.session.findById(id).press()
-            self.task_pass(msg=f"Click element: {id} successful", ss_name="click_element_success")
+                self.task_pass(msg=f"Clicking GuiButton with: {id} was successful", ss_name="click_gui_button_success")
+            else:
+                self.task_fail(msg=f"Clicking element: {id} failed", ss_name="click_element_failed")
         except Exception as err:
-            self.on_error(err, f"Unknown error while attempting click_element on {id}", is_task, fail_on_error, ss="click_element_error")
-        self.wait()
+            self.on_error(err, f"Unknown error while clicking element: {id}", is_task, fail_on_error, ss="click_element_error")
     
     click: FunctionType = click_element
 
+    @explicit_wait_after(wait_time=__explicit_wait__)
     def click_toolbar_button(self, table_id: str, button_id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
         if is_task: self.task
         try:
             self.element_should_be_present(table_id)
             self.session.findById(table_id).pressToolbarButton(button_id)
+            self.task_pass(msg=f"Clicking toolbar button: {id} was successful", ss_name="click_toolbar_button_success")
         except AttributeError:
-            self.session.findById(table_id).pressButton(button_id)
+            try:
+                self.session.findById(table_id).pressButton(button_id)
+                self.task_pass(msg=f"Clicking toolbar button: {id} was successful", ss_name="click_toolbar_button_success")
+            except Exception as err:
+                self.on_error(err, f"Cannot find Table ID/Button ID: {' / '.join([table_id, button_id])}", is_task, fail_on_error, ss="click_toolbar_button_error")
         except Exception as err:
             self.on_error(err, f"Cannot find Table ID/Button ID: {' / '.join([table_id, button_id])}", is_task, fail_on_error, ss="click_toolbar_button_error")
-        self.wait()
 
+    @explicit_wait_after(wait_time=__explicit_wait__)
     def double_click(self, id: str, item_id: str, column_id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
         if is_task: self.task
+        element_type = None
         try:
-            if (element_type := self.get_element_type(id)) == "GuiShell":
-                self.session.findById(id).doubleClickItem(item_id, column_id)
+            element_type = self.get_element_type(id)
         except Exception as err:
-            self.on_error(err, f"You cannot use 'double_click element' of element type {element_type}", is_task, fail_on_error, ss="double_click_element_error")
-        self.wait()
+            self.on_error(err, f"Error while getting element type for ID: {id}", is_task, fail_on_error, ss="double_click_get_type_error")
+        try:
+            if element_type == "GuiShell":
+                self.session.findById(id).doubleClickItem(item_id, column_id)
+                self.task_pass(msg=f"Double clicking: {id} was successful", ss_name="double_click_success")
+            else:
+                try:
+                    self.session.findById(id).doubleClickItem(item_id, column_id)
+                    self.task_pass(msg=f"Double clicking: {id} of type {element_type} was successful", ss_name="double_click_success")
+                except Exception as err:
+                    self.on_error(err, f"You cannot use 'double_click' for element: {id} of type {element_type}", is_task, fail_on_error, ss="double_click_element_error")
+        except Exception as err:
+            self.on_error(err, f"You cannot use 'double_click' for element: {id} of type {element_type}", is_task, fail_on_error, ss="double_click_element_error")
+        
+    @explicit_wait_before(wait_time=__explicit_wait__)
+    def get_cell_value(self, table_id: str, row_num: int, col_id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> str | None:
+        if is_task: self.task
+        if self.is_element(element=table_id):
+            try:
+                _value = self.session.findById(table_id).getCellValue(row_num, col_id)
+                self.task_pass()
+                return _value
+            except Exception as err:
+                self.on_error(err, f"Cannot find cell value for table: {table_id}, row: {row_num}, and column: {col_id}", is_task, fail_on_error, ss="get_cell_value_error")
 
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def set_combobox(self, id: str, key: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            if (element_type := self.get_element_type(id)) == "GuiComboBox":
+                self.session.findById(id).key = key
+                self.logger.log.info(f"ComboBox value {key} selected from {id}")
+                self.task_pass()
+            else:
+                self.on_error(None, f"Element type {element_type} for element {id} has no set key method.", is_task, fail_on_error, ss="set_combobox_error")
+        except Exception as err:
+            self.on_error(err, f"Unknown error while setting ComboBox value {key} for {id}", is_task, fail_on_error, ss="set_combobox_error")
+    
+    combobox = set_combobox
+    set_dropdown = set_combobox
+
+    @explicit_wait_before(wait_time=__explicit_wait__)
+    def get_element_location(self, id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> tuple[int] | None:
+        if is_task: self.task
+        _location = None
+        try:
+            _location = (self.session.findById(id).screenLeft, self.session.findById(id).screenTop) if self.is_element(element=id) else None
+            if _location:
+                self.task_pass()
+            else:
+                self.task_fail()
+        except Exception as err:
+            self.on_error(err, f"Unknown error while getting element location for {id}", is_task, fail_on_error, ss="get_element_location_error")
+        return _location
+
+    @explicit_wait_before(wait_time=__explicit_wait__)
+    def get_element_type(self, id) -> Any:
+        try:
+            _type = self.session.findById(id).type
+            self.task_pass()
+            return _type
+        except Exception as err:
+            self.take_screenshot(screenshot_name="get_element_type_error")
+            self.logger.log.error(f"Cannot find element type for id: {id} -> {err}")
+            self.task_fail()
+
+    @explicit_wait_before(wait_time=__explicit_wait__)
+    def get_row_count(self, table_id) -> int:
+        try:
+            _count = self.session.findById(table_id).rowCount if self.is_element(element=table_id) else 0
+            self.task_pass()
+            return _count
+        except Exception as err:
+            self.take_screenshot(screenshot_name="get_row_count_error")
+            self.logger.log.error(f"Cannot find row count for table: {table_id} -> {err}")
+            self.task_fail()
+
+    @explicit_wait_before(wait_time=__explicit_wait__)
+    def get_scroll_position(self, id: str) -> int:
+        try:
+            _position = int(self.session.findById(id).verticalScrollbar.position) if self.is_element(element=id) else 0
+            self.task_pass()
+            return _position
+        except Exception as err:
+            self.take_screenshot(screenshot_name="get_scroll_position_error")
+            self.logger.log.error(f"Cannot get scrollbar position for: {id} -> {err}")
+            self.task_fail()
+
+    @explicit_wait_before(wait_time=__explicit_wait__)
+    def get_window_title(self, id: str) -> str:
+        try:
+            _title =  self.session.findById(id).text if self.is_element(element=id) else ""
+            self.task_pass()
+            return _title
+        except Exception as err:
+            self.take_screenshot(screenshot_name="get_window_title_error")
+            self.logger.log.error(f"Cannot find window with locator {id} -> {err}")
+            self.task_fail()
+
+    @explicit_wait_before(wait_time=__explicit_wait__)
+    def get_value(self, id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> Any:
+        if is_task: self.task
+        try:
+            _value = None
+            if (element_type := self.get_element_type(id)) in text_elements:
+                _value = self.session.findById(id).text
+            elif element_type in ("GuiCheckBox", "GuiRadioButton"):
+                _value = self.session.findById(id).selected
+            elif element_type == "GuiComboBox":
+                _value = str(self.session.findById(id).text).strip()
+            else:
+                self.take_screenshot(screenshot_name="get_value_warning")
+                self.logger.log.error(f"Cannot get value for element type {element_type} for id {id}")
+            if _value:
+                self.task_pass()
+                return _value
+            else:
+                return None
+        except Exception as err:
+            _msg = f"Cannot get value for element type {element_type} for id {id}|{err}"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="get_value_error")
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def input_text(self, id: str, text: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            if (element_type := self.get_element_type(id)) in text_elements:
+                self.session.findById(id).text = text
+                self.task_pass(msg=f"Input {text} into text field {id} was successful", ss_name="input_text_passed")
+            else:
+                self.task_fail(msg=f"Cannot use keyword 'input text' for element type {element_type}", ss_name="input_text_failed")
+        except Exception as err:
+            _msg = f"Unknown error during text input for id: {id}|{err}"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="input_text_error")
+    
+    text = input_text
+
+    def input_random_value(self, id: str, text: Optional[str] = None, prefix: Optional[bool] = False, suffix: Optional[bool] = False, 
+        date_time: Optional[bool] = False, random: Optional[bool] = False, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> str:
+        if is_task: self.task
+        dt: str = str("_" + datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")) if date_time else ""
+        rs: str = str("_" + string_generator()) if random else ""
+        tmp: str = str("_" + text) if text is not None else ""
+        if prefix:
+            tmp = f"{dt}{rs}{tmp}"
+        if suffix:
+            tmp = f"{tmp}{dt}{rs}"
+        try:
+            self.input_text(id=id, text=tmp, is_task=False)
+            if self.get_value(id=id) == tmp:
+                self.task_pass(msg=f"Input random value: {tmp} was successful", ss_name="input_random_value_passed")
+            else:
+                self.task_fail(msg=f"Input random value: {tmp} failed", ss_name="input_random_value_failed")
+        except Exception as err:
+            _msg = f"Unknown error inputting random value: {tmp}|{err}"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="input_random_value_error")
+        return tmp
+    
+    def input_current_date(self, id: str, format: Optional[str] = "%m/%d/%Y", fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        self.input_text(id=id, text=datetime.datetime.now().strftime(format), is_task=False)
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def set_vertical_scroll(self, id: str, position: int, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        if self.is_element(id):
+            self.session.findById(id).verticalScrollbar.position = position
+            self.task_pass()
+        else:
+            self.task_fail()
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def set_horizontal_scroll(self, id: str, position: int, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        if self.is_element(id):
+            self.session.findById(id).horizontalScrollbar.position = position
+            self.task_pass()
+        else:
+            self.task_fail()
+
+    @explicit_wait_before(wait_time=__explicit_wait__)
+    def get_vertical_scroll(self, id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> int | None:
+        if is_task: self.task
+        try:
+            _vs = self.session.findById(id).verticalScrollbar.position if self.is_element(id) else None
+            self.task_pass()
+            return _vs
+        except Exception as err:
+            self.take_screenshot(screenshot_name="get_vertical_scroll")
+            self.logger.log.error(f"Cannot get vertical scroll position -> {err}")
+            self.task_fail()
+
+    @explicit_wait_before(wait_time=__explicit_wait__)
+    def get_horizontal_scroll(self, id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> int | None:
+        if is_task: self.task
+        try:
+            _hs = self.session.findById(id).horizontalScrollbar.position if self.is_element(id) else None
+            self.task_pass()
+            return _hs
+        except Exception as err:
+            self.take_screenshot(screenshot_name="get_horizontal_scroll")
+            self.logger.log.error(f"Cannot get horizontal scroll position -> {err}")
+            self.task_fail()
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def select_checkbox(self, id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        if (element_type := self.get_element_type(id)) == "GuiCheckBox":
+            self.session.findById(id).selected = True
+            self.task_pass()
+        else:
+            self.take_screenshot(screenshot_name="select_checkbox_error")
+            self.logger.log.error(f"Cannot use keyword 'select checkbox' for element type {element_type}")
+            self.task_fail()
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def unselect_checkbox(self, id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        if (element_type := self.get_element_type(id)) == "GuiCheckBox":
+            self.session.findById(id).selected = False
+            self.task_pass()
+        else:
+            self.take_screenshot(screenshot_name="select_checkbox_error")
+            self.logger.log.error(f"Cannot use keyword 'unselect checkbox' for element type {element_type}")
+            self.task_fail()
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def set_cell_value(self, table_id, row_num, col_id, text, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True):
+        if is_task: self.task
+        try:
+            if self.is_element(element=table_id):
+                self.session.findById(table_id).modifyCell(row_num, col_id, text)
+                self.task_pass(msg=f"Input {text} into cell ({row_num}, {col_id}) was successful", ss_name="set_cell_value_passed")
+            else:
+                self.task_fail(msg=f"Failed entering {text} into cell ({row_num}, {col_id})", ss_name="set_cell_value_failed")
+        except Exception as err:
+            _msg = f"Failed entering {text} into cell ({row_num}, {col_id})|{err}"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="set_cell_value_error")
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def send_vkey(self, vkey: str, window: Optional[int] = 0, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        vkey_id = str(vkey)
+        if not vkey_id.isdigit():
+            search_comb = vkey_id.upper()
+            search_comb = search_comb.replace(" ", "")
+            search_comb = search_comb.replace("CONTROL", "CTRL")
+            search_comb = search_comb.replace("DELETE", "DEL")
+            search_comb = search_comb.replace("INSERT", "INS")
+            try:
+                vkey_id = vkeys.index(search_comb)
+            except ValueError:
+                if search_comb == "CTRL+S":
+                    vkey_id = 11
+                elif search_comb == "ESC":
+                    vkey_id = 12
+                else:
+                    self.task_fail(msg=f"Cannot find given Vkey {vkey}, provide a valid Vkey number or combination", ss_name="find_vkey_failed")
+        try:
+            self.window.sendVKey(vkey_id)
+            self.task_pass(msg=f"Send {vkey} successful", ss_name="send_vkey_passed")
+        except Exception as err:
+            _msg = f"Cannot send Vkey to window wnd[{self.__window_number}]|{err}"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="send_vkey_error")
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def select_context_menu_item(self, id: str, menu_id: str, item_id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            if self.is_element(element=id):
+                if hasattr(self.session.findById(id), "nodeContextMenu"):
+                    self.session.findById(id).nodeContextMenu(menu_id)
+                    self.session.findById(id).selectContextMenuItem(item_id)
+                    self.task_pass(msg=f"Selecting item: {item_id} from menu: {menu_id} for ID: {id} was successful", ss_name="select_context_menu_item_passed")
+                elif hasattr(self.session.findById(id), "pressContextButton"):
+                    self.session.findById(id).pressContextButton(menu_id)
+                    self.session.findById(id).selectContextMenuItem(item_id)
+                    self.task_pass(msg=f"Selecting item: {item_id} from menu: {menu_id} for ID: {id} was successful", ss_name="select_context_menu_item_passed")
+                else:
+                    self.task_fail(msg=f"Cannot use keyword 'Select Context Menu Item' with element type {self.get_element_type(id)}", ss_name="select_context_menu_item_failed")
+        except Exception as err:
+            _msg = f"Unknown error while selecting item: {item_id} from menu: {menu_id} for ID: {id}|{err}"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="select_context_menu_item_error")
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def select_from_list_by_label(self, id: str, value: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            if (element_type := self.get_element_type(id)) == "GuiComboBox":
+                self.session.findById(id).key = value
+                self.task_pass(msg=f"Selecting item from list: {id} by label: {value} was successful", ss_name="select_from_list_by_label_passed")
+            else:
+                self.task_fail(msg=f"Cannot use keyword Select From List By Label with element type {element_type}", ss_name="select_from_list_by_label_failed")
+        except Exception as err:
+            _msg = f"Unknown error while selecting item from list: {id} by label: {value}|{err}"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="select_from_list_by_label_error")
+
+    @explicit_wait_before(wait_time=__explicit_wait__)
+    def select_node(self, tree_id: str, node_id: str, expand: bool = False, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True):
+        if is_task: self.task
+        try:
+            if self.is_element(element=tree_id):
+                self.session.findById(tree_id).selectedNode = node_id
+                if expand:
+                    try:
+                        self.session.findById(tree_id).expandNode(node_id)
+                        self.task_pass(msg=f"Selecting node {node_id} from tree {tree_id} was successful", ss_name="select_node_passed")
+                    except:
+                        _msg = f"Unknown error while selecting node {node_id} from tree {tree_id}|{err}"
+                        self.on_error(err, _msg, is_task, fail_on_error, ss="select_node_error")
+            else:
+                self.task_fail(msg=f"Unable to select node {node_id} from tree {tree_id}", ss_name="select_node_failed")
+        except Exception as err:
+            _msg = f"Unknown error while selecting node {node_id} from tree {tree_id}|{err}"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="select_node_error")
+
+    @explicit_wait_before(wait_time=__explicit_wait__)
+    def select_node_link(self, tree_id: str, link_id1: str, link_id2: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            if self.is_element(element=tree_id):
+                self.session.findById(tree_id).selectItem(link_id1, link_id2)
+                self.session.findById(tree_id).clickLink(link_id1, link_id2)
+                self.task_pass(msg=f"Selecting node {link_id1} and clicked link {link_id2} from tree {tree_id}", ss_name="select_node_link_passed")
+            else:
+                self.task_fail(msg=f"Unable to select node {link_id1} and click link {link_id2} from tree {tree_id}", ss_name="select_node_link_failed")
+        except Exception as err:
+            _msg = f"Unknown error while selecting node {link_id1} and clicking link {link_id2} from tree {tree_id}|{err}"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="select_node_link_error")
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def select_radio_button(self, id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            if (element_type := self.get_element_type(id)) == "GuiRadioButton":
+                self.session.findById(id).selected = True
+                self.task_pass(msg=f"Select Radio Button: {id} was successful", ss_name="select_radio_button_passed")
+            else:
+                self.task_fail(msg=f"Cannot use keyword Select Radio Button with element type {element_type}", ss_name="select_radio_button_failed")
+        except Exception as err:
+            _msg = f"Unknown error while selecting Radio Button: {id}|{err}"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="select_radio_button_error")
+
+    # Function for Tables
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def select_table_row(self, table_id: str, row_num: int, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            if (element_type := self.get_element_type(table_id)) == "GuiTableControl":
+                id = self.session.findById(table_id).getAbsoluteRow(row_num)
+                id.selected = -1
+                self.task_pass(msg=f"Selecting row: {row_num} from table: {table_id} was successful", ss_name="select_table_row_passed")
+            else:
+                try:
+                    self.session.findById(table_id).selectedRows = row_num
+                    self.task_pass(msg=f"Selecting row: {row_num} from table: {table_id} was successful", ss_name="select_table_row_passed")
+                except Exception as err:
+                    _msg = f"Cannot use keyword Select Table Row for element type {element_type}|{err}"
+                    self.on_error(err, _msg, is_task, fail_on_error, ss="select_table_row_error")
+        except Exception as err:
+            _msg = f"Cannot use keyword Select Table Row for element type {element_type}|{err}"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="select_table_row_error")
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def get_next_empty_table_row(self, table_id: str, column_index: Optional[int] = 0, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            table = self.session.findById(table_id)
+            rows = table.rows
+            for i in range(rows.count):
+                row = rows.elementAt(i)
+                if row.elementAt(column_index).text == "":
+                    self.task_pass(msg=f"Found next empty table row for table {table_id} at row: {i}", ss_name="get_next_empty_table_row_passed")
+                    return i
+            self.task_fail(msg=f"Cannot get next empty table row for table {table_id}", ss_name="get_next_empty_table_row_failed")
+        except Exception as err:
+            _msg = f"Unknown error while getting next empty table row for table {table_id}|{err}"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="get_next_empty_table_row_error")
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def insert_in_table(self, table_id: str, value: str, column_index: Optional[int] = 0, row_index: Optional[int] = None, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            if not row_index:
+                row_index = self.get_next_empty_table_row(table_id=table_id, column_index=column_index, is_task=False)
+            table = self.session.findById(table_id)
+            cell = table.getCell(row_index, column_index)
+            (element_type := cell.type)
+            if (element_type := cell.type) == "GuiComboBox":
+                cell.key = value
+                self.task_pass(msg=f"Inserting value: {value} in table: {table_id} was successful", ss_name="insert_in_table_passed")
+            elif element_type == "GuiCTextField":
+                cell.text = value
+                self.task_pass(msg=f"Inserting value: {value} in table: {table_id} was successful", ss_name="insert_in_table_passed")
+            else:
+                self.task_fail(msg=f"Cannot inset {value} in table {table_id} at column index: {column_index}", ss_name="insert_in_table_failed")
+        except Exception as err:
+            _msg = f"Unknown error while inserting value: {value} in table: {table_id} at column index: {column_index}|{err}"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="insert_in_table_error")
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def select_table_column(self, table_id: str, column_id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            if self.is_element(element=table_id):
+                self.session.findById(table_id).selectColumn(column_id)
+                self.task_pass(msg=f"Selecting column: {column_id} from table: {table_id} was successful", ss_name="select_table_column_passed")
+            else:
+                self.task_fail(msg=f"Selecting column: {column_id} from table: {table_id} failed", ss_name="get_next_empty_table_row_failed")
+        except Exception as err:
+            _msg = f"Cannot find column ID: {column_id} for table {table_id}|{err}"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="select_table_column_error")
+
+    def dump_grid_view(self, table_id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> list:
+        if is_task: self.task
+        _rows = []
+        try:
+            _table = self.session.findById(table_id)
+            _row_count = _table.rowCount
+            _column_names = [i for i in _table.columnOrder]
+            for row in range(_row_count): 
+                _cells = []
+                for column in _column_names:
+                    _cells.append(_table.getCellValue(row, column))
+                _rows.append(_cells)
+        except Exception as err:
+            _msg = f"Unknown error in dump_grid_view|{err}"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="dump_grid_view_error")
+        if len(_rows) != 0:
+            self.task_pass(msg=f"GridView dump successfully", ss_name="dump_grid_view_pass_passed")
+        else:
+            self.task_fail(msg=f"GridView dump failed", ss_name="dump_grid_view_pass_failed")
+        return _rows
+
+    # Soft functions
+    def try_and_continue(self, func_name: str, *args, **kwargs) -> Any:
+        result = None
+        try:
+            if hasattr(self, func_name) and callable(func := getattr(self, func_name)):
+                result = func(*args, **kwargs)
+        except Exception as err:
+            self.logger.log.debug(f"Try and Continue error for function: {func}|{err}")
+        return result
+    
+    # Buttons & Keys
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def enter(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            self.send_vkey(vkey="ENTER", is_task=False)
+        except Exception as err:
+            _msg = "Error while pressing ENTER"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="press_enter_error")
+    
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def save(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            self.send_vkey(vkey="CTRL+S")
+        except Exception as err:
+            _msg = "Error during SAVE"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="press_save_error")
+    
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def back(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            self.send_vkey(vkey="F3")
+        except Exception as err:
+            _msg = "Error while pressing BACK"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="press_back_error")
+    
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def f8(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            self.send_vkey(vkey="F8")
+        except Exception as err:
+            _msg = "Error while pressing F8"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="press_f8_error")
+    
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def f5(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            self.send_vkey(vkey="F5")
+        except Exception as err:
+            _msg = "Error while pressing F5"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="press_f5_error")
+    
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def f6(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            self.send_vkey(vkey="F6")
+        except Exception as err:
+            _msg = "Error while pressing F6"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="press_f6_error")
+    
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def f7(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            self.send_vkey(vkey="F7")
+        except Exception as err:
+            _msg = "Error while pressing F7"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="press_f7_error")
+    
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def f4(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            self.send_vkey(vkey="F4")
+        except Exception as err:
+            _msg = "Error while pressing F4"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="press_f4_error")
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def f3(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            self.send_vkey(vkey="F3")
+        except Exception as err:
+            _msg = "Error while pressing F3"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="press_f3_error")
+    
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def f2(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            self.send_vkey(vkey="F2")
+        except Exception as err:
+            _msg = "Error while pressing F2"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="press_f2_error")
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def f1(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task: self.task
+        try:
+            self.send_vkey(vkey="F1")
+        except Exception as err:
+            _msg = "Error while pressing F1"
+            self.on_error(err, _msg, is_task, fail_on_error, ss="press_f1_error")
+
+    # Assertions
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def assert_element_value_contains(self, id: str, expected_value: str, message: Optional[str] = None) -> None:
+        if self.is_element(element=id):
+            actual_value = self.get_value(id=id)
+            self.session.findById(id).setfocus()
+            self.task_pass()
+        if (element_type := self.get_element_type(id)) in text_elements:
+            if expected_value != actual_value:
+                message = message if message is not None else f"Element value of {id} does not contain {expected_value} but was {actual_value}"
+                self.take_screenshot(screenshot_name=f"{element_type}_error")
+                self.logger.log.error(f"AssertContainsError > {message}")
+                self.task_fail()
+        else:
+            self.take_screenshot(screenshot_name=f"{element_type}_error")
+            self.logger.log.error(f"AssertContainsError > Element value of {id} does not contain {expected_value}, but was {actual_value}")
+            self.task_fail()
+
+    def assert_success_status(self, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
+        if is_task:
+            self.task
+        try:
+            smd = self.get_status_msg_dict()
+            if smd['messageType'] == "S":
+                self.task_pass(msg=f"Status is Success. MsgID & MsgNumber: {smd['messageId']}{smd['messageNumber']}, MsgType: {smd['messageType']}, Msg: {smd['message']} {smd['text']}", ss_name="assert_success_status_pass")
+            else:
+                self.task_fail(msg=f"Status is not equal 'S'. MsgID & MsgNumber: {smd['messageId']}{smd['messageNumber']}, MsgType: {smd['messageType']}, Msg: {smd['message']} {smd['text']}", ss_name="assert_success_status_fail")
+        except Exception as err:
+            _msg = f"Unknown error while attempting to check status.|{err}"
+            if is_task:
+                if fail_on_error:
+                    self.task_fail(msg=_msg, ss_name="assert_success_status_fail")
+                else:
+                    self.task_pass(msg=_msg, ss_name="assert_success_status_pass")
+            else:
+                self.logger.log.warning(_msg)
+
+    @explicit_wait_before(wait_time=__explicit_wait__)
     def assert_element_present(self, id: str, message: Optional[str] = None, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
         if is_task: self.task
-        self.wait()
         _msg = message if message is not None else f"Cannot find element {id}"
         try:
             if not self.is_element(element=id):
@@ -759,10 +1290,10 @@ class Gui:
             self.task_pass()
         except Exception as err:
             self.on_error(err, _msg, is_task, fail_on_error, ss="assert_element_present_error")
-    
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
     def assert_string_has_numeric(self, text: str, len_value: Optional[int] = None, message: Optional[str] = None, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> bool:
         if is_task: self.task
-        self.wait()
         _msg = message if message is not None else ""
         result = False
         try:
@@ -786,15 +1317,15 @@ class Gui:
             self.task_fail(msg=_msg, ss_name="assert_string_has_numeric_fail")
         return result
 
+    @explicit_wait_after(wait_time=__explicit_wait__)
     def assert_element_value(self, id: str, expected_value: str, message: Optional[str] = None, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
         if is_task: self.task
-        self.wait()
         try:
             if self.is_element(element=id):
                 actual_value = self.get_value(id=id)
                 self.session.findById(id).setfocus()
                 self.task_pass()
-            if (element_type := self.get_element_type(id)) in self.text_elements:
+            if (element_type := self.get_element_type(id)) in text_elements:
                 if expected_value != actual_value:
                     _msg = message if message is not None else f"Element value of {id} should be {expected_value}, but was {actual_value}"
                     self.on_error(None, _msg, is_task, fail_on_error, ss=f"{element_type}_error")
@@ -816,13 +1347,13 @@ class Gui:
     
     assert_element_value_equal = assert_element_value
 
+    @explicit_wait_after(wait_time=__explicit_wait__)
     def assert_element_value_not_equal(self, id: str, expected_value: str, message: Optional[str] = None) -> None:
         if self.is_element(element=id):
             actual_value = self.get_value(id=id)
             self.session.findById(id).setfocus()
-            self.wait()
             self.task_pass()
-        if (element_type := self.get_element_type(id)) in self.text_elements:
+        if (element_type := self.get_element_type(id)) in text_elements:
             if expected_value == actual_value:
                 message = message if message is not None else f"Element value of {id} should not be equal to {expected_value}"
                 self.take_screenshot(screenshot_name=f"{element_type}_error")
@@ -844,466 +1375,6 @@ class Gui:
             self.logger.log.error(f"AssertNotEqualError > Element value of {id} should not be equal to {expected_value}")
             self.task_fail()
 
-    def assert_element_value_contains(self, id: str, expected_value: str, message: Optional[str] = None) -> None:
-        if self.is_element(element=id):
-            actual_value = self.get_value(id=id)
-            self.session.findById(id).setfocus()
-            self.wait()
-            self.task_pass()
-        if (element_type := self.get_element_type(id)) in self.text_elements:
-            if expected_value != actual_value:
-                message = message if message is not None else f"Element value of {id} does not contain {expected_value} but was {actual_value}"
-                self.take_screenshot(screenshot_name=f"{element_type}_error")
-                self.logger.log.error(f"AssertContainsError > {message}")
-                self.task_fail()
-        else:
-            self.take_screenshot(screenshot_name=f"{element_type}_error")
-            self.logger.log.error(f"AssertContainsError > Element value of {id} does not contain {expected_value}, but was {actual_value}")
-            self.task_fail()
-        
-
-    def get_cell_value(self, table_id: str, row_num: int, col_id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> str | None:
-        if is_task: self.task
-        self.wait()
-        if self.is_element(element=table_id):
-            try:
-                _value = self.session.findById(table_id).getCellValue(row_num, col_id)
-                self.task_pass()
-                return _value
-            except Exception as err:
-                self.on_error(err, f"Cannot find cell value for table: {table_id}, row: {row_num}, and column: {col_id}", is_task, fail_on_error, ss="get_cell_value_error")
-
-    def set_combobox(self, id: str, key: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
-        if is_task: self.task
-        try:
-            if (element_type := self.get_element_type(id)) == "GuiComboBox":
-                self.session.findById(id).key = key
-                self.logger.log.info(f"ComboBox value {key} selected from {id}")
-                self.task_pass()
-            else:
-                self.on_error(None, f"Element type {element_type} for element {id} has no set key method.", is_task, fail_on_error, ss="set_combobox_error")
-        except Exception as err:
-            self.on_error(err, f"Unknown error while setting ComboBox value {key} for {id}", is_task, fail_on_error, ss="set_combobox_error")
-        self.wait()
-    
-    combobox = set_combobox
-    set_dropdown = set_combobox
-
-    def get_element_location(self, id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> tuple[int] | None:
-        if is_task: self.task
-        self.wait()
-        _location = None
-        try:
-            _location = (self.session.findById(id).screenLeft, self.session.findById(id).screenTop) if self.is_element(element=id) else None
-            if _location:
-                self.task_pass()
-            else:
-                self.task_fail()
-        except Exception as err:
-            self.on_error(err, f"Unknown error while getting element location for {id}", is_task, fail_on_error, ss="get_element_location_error")
-        return _location
-
-    def get_element_type(self, id) -> Any:
-        try:
-            _type = self.session.findById(id).type
-            self.task_pass()
-            return _type
-        except Exception as err:
-            self.take_screenshot(screenshot_name="get_element_type_error")
-            self.logger.log.error(f"Cannot find element type for id: {id} -> {err}")
-            self.task_fail()
-
-    def get_row_count(self, table_id) -> int:
-        try:
-            _count = self.session.findById(table_id).rowCount if self.is_element(element=table_id) else 0
-            self.task_pass()
-            return _count
-        except Exception as err:
-            self.take_screenshot(screenshot_name="get_row_count_error")
-            self.logger.log.error(f"Cannot find row count for table: {table_id} -> {err}")
-            self.task_fail()
-
-    def get_scroll_position(self, id: str) -> int:
-        self.wait()
-        try:
-            _position = int(self.session.findById(id).verticalScrollbar.position) if self.is_element(element=id) else 0
-            self.task_pass()
-            return _position
-        except Exception as err:
-            self.take_screenshot(screenshot_name="get_scroll_position_error")
-            self.logger.log.error(f"Cannot get scrollbar position for: {id} -> {err}")
-            self.task_fail()
-
-    def get_window_title(self, id: str) -> str:
-        try:
-            _title =  self.session.findById(id).text if self.is_element(element=id) else ""
-            self.task_pass()
-            return _title
-        except Exception as err:
-            self.take_screenshot(screenshot_name="get_window_title_error")
-            self.logger.log.error(f"Cannot find window with locator {id} -> {err}")
-            self.task_fail()
-
-    def get_value(self, id: str, exit_on_error: Optional[bool] = True) -> Any:
-        try:
-            _value = None
-            if (element_type := self.get_element_type(id)) in self.text_elements:
-                _value = self.session.findById(id).text
-            elif element_type in ("GuiCheckBox", "GuiRadioButton"):
-                _value = self.session.findById(id).selected
-            elif element_type == "GuiComboBox":
-                _value = str(self.session.findById(id).text).strip()
-            else:
-                self.take_screenshot(screenshot_name="get_value_warning")
-                self.logger.log.error(f"Cannot get value for element type {element_type} for id {id}")
-            if _value:
-                self.task_pass()
-                return _value
-            else:
-                return None
-        except Exception as err:
-            self.take_screenshot(screenshot_name="get_value_error.jpg")
-            self.logger.log.error(f"Cannot get value for element type {element_type} for id {id} -> {err}")
-            self.task_fail(exit_on_error=exit_on_error)
-
-    def input_text(self, id: str, text: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True) -> None:
-        if is_task:
-            self.task
-        if (element_type := self.get_element_type(id)) in self.text_elements:
-            self.session.findById(id).text = text
-            if element_type != "GuiPasswordField":
-                self.logger.log.info(f"Input {text} into text field {id}")
-            self.wait()
-            self.task_pass(msg="", ss_name="")
-        else:
-            self.take_screenshot(screenshot_name="input_text_error")
-            self.logger.log.error(f"Cannot use keyword 'input text' for element type {element_type}")
-            self.task_fail()
-    
-    text = input_text
-
-    def string_generator(self, size: Optional[int]=6, chars: Optional[str]=string.ascii_uppercase + string.digits) -> str:
-        selected_chars = []
-        for i in range(size):
-            selected_chars.append(random.choice(chars))
-        return ''.join(selected_chars)
-
-    def input_random_value(self, id: str, text: str, prefix: bool = False, suffix: bool = False, date_time: bool = False, random: bool = False) -> str:
-        dt: str = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f") if date_time else ""
-        rs: str = self.string_generator() if random else ""
-        tmp: str = text
-        if prefix:
-            tmp = f"{dt}_{rs}{tmp}"
-        if suffix:
-            tmp = f"{tmp}_{dt}{rs}"
-        self.input_text(id=id, text=tmp)
-        return tmp
-    
-    def input_current_date(self, id: str, format: Optional[str] = "%m/%d/%Y") -> None:
-        self.input_text(id=id, text=datetime.datetime.now().strftime(format))
-
-    def set_vertical_scroll(self, id: str, position: int) -> None:
-        if self.is_element(id):
-            self.session.findById(id).verticalScrollbar.position = position
-            self.wait()
-            self.task_pass()
-        else:
-            self.task_fail()
-
-    def set_horizontal_scroll(self, id: str, position: int) -> None:
-        if self.is_element(id):
-            self.session.findById(id).horizontalScrollbar.position = position
-            self.wait()
-            self.task_pass()
-        else:
-            self.task_fail()
-
-    def get_vertical_scroll(self, id: str) -> int | None:
-        try:
-            _vs = self.session.findById(id).verticalScrollbar.position if self.is_element(id) else None
-            self.task_pass()
-            return _vs
-        except Exception as err:
-            self.take_screenshot(screenshot_name="get_vertical_scroll")
-            self.logger.log.error(f"Cannot get vertical scroll position -> {err}")
-            self.task_fail()
-
-    def get_horizontal_scroll(self, id: str) -> int | None:
-        try:
-            _hs = self.session.findById(id).horizontalScrollbar.position if self.is_element(id) else None
-            self.task_pass()
-            return _hs
-        except Exception as err:
-            self.take_screenshot(screenshot_name="get_horizontal_scroll")
-            self.logger.log.error(f"Cannot get horizontal scroll position -> {err}")
-            self.task_fail()
-
-    def select_checkbox(self, id: str) -> None:
-        if (element_type := self.get_element_type(id)) == "GuiCheckBox":
-            self.session.findById(id).selected = True
-            self.wait()
-            self.task_pass()
-        else:
-            self.take_screenshot(screenshot_name="select_checkbox_error")
-            self.logger.log.error(f"Cannot use keyword 'select checkbox' for element type {element_type}")
-            self.task_fail()
-
-    def unselect_checkbox(self, id: str) -> None:
-        if (element_type := self.get_element_type(id)) == "GuiCheckBox":
-            self.session.findById(id).selected = False
-            self.wait()
-            self.task_pass()
-        else:
-            self.take_screenshot(screenshot_name="select_checkbox_error")
-            self.logger.log.error(f"Cannot use keyword 'unselect checkbox' for element type {element_type}")
-            self.task_fail()
-
-    def set_cell_value(self, table_id, row_num, col_id, text):
-        if self.is_element(element=table_id):
-            try:
-                self.session.findById(table_id).modifyCell(row_num, col_id, text)
-                self.logger.log.info(f"Input {text} into cell ({row_num}, {col_id})")
-                self.wait()
-                self.task_pass()
-            except Exception as err:
-                self.take_screenshot(screenshot_name="set_cell_value_error.jpg")
-                self.logger.log.error(f"Failed entering {text} into cell ({row_num}, {col_id}) -> {err}")
-
-    def send_vkey(self, vkey: str, window: int = 0) -> None:
-        vkey_id = str(vkey)
-        vkeys = ["ENTER", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
-                       None, "SHIFT+F2", "SHIFT+F3", "SHIFT+F4", "SHIFT+F5", "SHIFT+F6", "SHIFT+F7", "SHIFT+F8",
-                       "SHIFT+F9", "CTRL+SHIFT+0", "SHIFT+F11", "SHIFT+F12", "CTRL+F1", "CTRL+F2", "CTRL+F3", "CTRL+F4",
-                       "CTRL+F5", "CTRL+F6", "CTRL+F7", "CTRL+F8", "CTRL+F9", "CTRL+F10", "CTRL+F11", "CTRL+F12",
-                       "CTRL+SHIFT+F1", "CTRL+SHIFT+F2", "CTRL+SHIFT+F3", "CTRL+SHIFT+F4", "CTRL+SHIFT+F5",
-                       "CTRL+SHIFT+F6", "CTRL+SHIFT+F7", "CTRL+SHIFT+F8", "CTRL+SHIFT+F9", "CTRL+SHIFT+F10",
-                       "CTRL+SHIFT+F11", "CTRL+SHIFT+F12", None, None, None, None, None, None, None, None, None, None,
-                       None, None, None, None, None, None, None, None, None, None, None, "CTRL+E", "CTRL+F", "CTRL+A",
-                       "CTRL+D", "CTRL+N", "CTRL+O", "SHIFT+DEL", "CTRL+INS", "SHIFT+INS", "ALT+BACKSPACE",
-                       "CTRL+PAGEUP", "PAGEUP",
-                       "PAGEDOWN", "CTRL+PAGEDOWN", "CTRL+G", "CTRL+R", "CTRL+P", "CTRL+B", "CTRL+K", "CTRL+T",
-                       "CTRL+Y",
-                       "CTRL+X", "CTRL+C", "CTRL+V", "SHIFT+F10", None, None, "CTRL+#"]
-        if not vkey_id.isdigit():
-            search_comb = vkey_id.upper()
-            search_comb = search_comb.replace(" ", "")
-            search_comb = search_comb.replace("CONTROL", "CTRL")
-            search_comb = search_comb.replace("DELETE", "DEL")
-            search_comb = search_comb.replace("INSERT", "INS")
-            try:
-                vkey_id = vkeys.index(search_comb)
-            except ValueError:
-                if search_comb == "CTRL+S":
-                    vkey_id = 11
-                elif search_comb == "ESC":
-                    vkey_id = 12
-                else:
-                    self.logger.log.error(f"Cannot find given Vkey {vkey}, provide a valid Vkey number or combination")
-                    self.task_fail()
-        try:
-            # self.session.findById(f"wnd[{self.__window_number}]").sendVKey(vkey_id)
-            self.window.sendVKey(vkey_id)
-            self.wait()
-            self.task_pass()
-        except Exception as err:
-            self.take_screenshot(screenshot_name="send_vkey_error")
-            self.logger.log.error(f"Cannot send Vkey to window wnd[{self.__window_number}]]")
-            self.task_fail()
-
-    def select_context_menu_item(self, id: str, menu_id: str, item_id: str) -> None:
-        if self.is_element(element=id):
-            if hasattr(self.session.findById(id), "nodeContextMenu"):
-                self.session.findById(id).nodeContextMenu(menu_id)
-                self.session.findById(id).selectContextMenuItem(item_id)
-                self.wait()
-                self.task_pass()
-            elif hasattr(self.session.findById(id), "pressContextButton"):
-                self.session.findById(id).pressContextButton(menu_id)
-                self.session.findById(id).selectContextMenuItem(item_id)
-                self.wait()
-                self.task_pass()
-            else:
-                self.take_screenshot(screenshot_name="select_context_menu_item_error")
-                self.logger.log.error(f"Cannot use keyword 'Select Context Menu Item' with element type {self.get_element_type(id)}")
-                self.task_fail()
-
-    def select_from_list_by_label(self, id: str, value: str) -> None:
-        if (element_type := self.get_element_type(id)) == "GuiComboBox":
-            self.session.findById(id).key = value
-            self.wait()
-            self.task_pass()
-        else:
-            self.take_screenshot(screenshot_name="select_from_list_by_label_error")
-            self.logger.log.error(f"Cannot use keyword Select From List By Label with element type {element_type}")
-            self.task_fail()
-
-    def select_node(self, tree_id: str, node_id: str, expand: bool = False):
-        if self.is_element(element=tree_id):
-            self.session.findById(tree_id).selectedNode = node_id
-            if expand:
-                try:
-                    self.session.findById(tree_id).expandNode(node_id)
-                except:
-                    self.take_screenshot(screenshot_name="expand_node")
-                    self.logger.log.error(f"Unable to expand node {node_id} from tree {tree_id}")
-                    self.task_fail()
-            self.wait()
-            self.task_pass()
-        else:
-            self.take_screenshot(screenshot_name="select_node")
-            self.logger.log.error(f"Unable to select node {node_id} from tree {tree_id}")
-            self.task_fail()
-
-    def select_node_link(self, tree_id: str, link_id1: str, link_id2: str) -> None:
-        if self.is_element(element=tree_id):
-            self.session.findById(tree_id).selectItem(link_id1, link_id2)
-            self.session.findById(tree_id).clickLink(link_id1, link_id2)
-            self.wait()
-            self.task_pass()
-        else:
-            self.take_screenshot(screenshot_name="select_node_link")
-            self.logger.log.error(f"Unable to select node {link_id1} and click link {link_id2} from tree {tree_id}")
-            self.task_fail()
-
-    def select_radio_button(self, id: str) -> None:
-        if (element_type := self.get_element_type(id)) == "GuiRadioButton":
-            self.session.findById(id).selected = True
-            self.wait()
-            self.task_pass()
-        else:
-            self.take_screenshot(screenshot_name="select_radio_button_error")
-            self.logger.log.error(f"Cannot use keyword Select Radio Button with element type {element_type}")
-            self.task_fail()
-
-    def select_table_column(self, table_id: str, column_id: str) -> None:
-        if self.is_element(element=table_id):
-            try:
-                self.session.findById(table_id).selectColumn(column_id)
-                self.wait()
-                self.task_pass()
-            except Exception as err:
-                self.take_screenshot(screenshot_name="select_table_column_error")
-                self.logger.log.error(f"Cannot find column ID: {column_id} for table {table_id}")
-                self.task_fail()
-    
-    def dump_grid_view(self, table_id: str, fail_on_error: Optional[bool] = True, is_task: Optional[bool] = True):
-        _rows = []
-        if is_task:
-            self.task
-        try:
-            _table = self.session.findById(table_id)
-            _row_count = _table.rowCount
-            _column_names = [i for i in _table.columnOrder]
-            for row in range(_row_count): 
-                _cells = []
-                for column in _column_names:
-                    _cells.append(_table.getCellValue(row, column))
-                _rows.append(_cells)
-            if is_task:
-                self.task_pass(msg=f"GridView dump successfully", ss_name="dump_grid_view_pass_success")
-        except Exception as err:
-            _msg = f"Unknown error in dump_grid_view|{err}"
-            if is_task:
-                if fail_on_error:
-                    self.task_fail(msg=_msg, ss_name="dump_grid_view_error")
-                else:
-                    self.task_pass(msg=_msg, ss_name="dump_grid_view_pass_error")
-            else:
-                self.logger.log.warning(_msg)
-        return _rows
-
-    def select_table_row(self, table_id: str, row_num: int) -> None:
-        if (element_type := self.get_element_type(table_id)) == "GuiTableControl":
-            id = self.session.findById(table_id).getAbsoluteRow(row_num)
-            id.selected = -1
-            self.wait()
-            self.task_pass()
-        else:
-            try:
-                self.session.findById(table_id).selectedRows = row_num
-                self.wait()
-                self.task_pass()
-            except Exception as err:
-                self.take_screenshot(screenshot_name="select_table_row_error")
-                self.logger.log.error(f"Cannot use keyword Select Table Row for element type {element_type} -> {err}")
-                self.task_fail()
-
-    def try_and_continue(self, func_name: str, *args, **kwargs) -> Any:
-        result = None
-        self.wait(1.0)
-        try:
-            if hasattr(self, func_name) and callable(func := getattr(self, func_name)):
-                result = func(*args, **kwargs)
-        except Exception:
-            pass
-        return result
-    
-    def get_next_empty_table_row(self, table_id: str, column_index: Optional[int] = 0) -> None:
-        try:
-            table = self.session.findById(table_id)
-            rows = table.rows
-            for i in range(rows.count):
-                row = rows.elementAt(i)
-                if row.elementAt(column_index).text == "":
-                    self.task_pass()
-                    return i
-            self.task_fail()
-        except Exception as err:
-            self.take_screenshot(screenshot_name="get_next_empty_table_row")
-            self.logger.log.error(f"Cannot get next empty table row for table {table_id} -> {err}")
-            self.task_fail()
-    
-    def insert_in_table(self, table_id: str, value: str, column_index: Optional[int] = 0, row_index: Optional[int] = None) -> None:
-        if not row_index:
-            row_index = self.get_next_empty_table_row(table_id=table_id, column_index=column_index)
-        table = self.session.findById(table_id)
-        cell = table.getCell(row_index, column_index)
-        (element_type := cell.type)
-        if (element_type := cell.type) == "GuiComboBox":
-            cell.key = value
-            self.wait()
-            self.task_pass()
-        elif element_type == "GuiCTextField":
-            cell.text = value
-            self.wait()
-            self.task_pass()
-        else:
-            self.take_screenshot(screenshot_name="insert_in_table")
-            self.logger.log.error(f"Cannot inset {value} in table {table_id}")
-            self.task_fail()
-    
-    def enter(self) -> None:
-        self.send_vkey(vkey="ENTER")
-    
-    def save(self) -> None:
-        self.send_vkey(vkey="CTRL+S")
-    
-    def back(self) -> None:
-        self.send_vkey(vkey="F3")
-    
-    def f8(self) -> None:
-        self.send_vkey(vkey="F8")
-    
-    def f5(self) -> None:
-        self.send_vkey(vkey="F5")
-    
-    def f6(self) -> None:
-        self.send_vkey(vkey="F6")
-    
-    def f7(self) -> None:
-        self.send_vkey(vkey="F7")
-    
-    def f4(self) -> None:
-        self.send_vkey(vkey="F4")
-
-    def f3(self) -> None:
-        self.send_vkey(vkey="F3")
-    
-    def f2(self) -> None:
-        self.send_vkey(vkey="F2")
-
-    def f1(self) -> None:
-        self.send_vkey(vkey="F1")
 
 class SalesOrder:
     def __init__(self, sap: Gui) -> None:

@@ -1,8 +1,10 @@
 import datetime
 import inspect
 import os
+import random
 import re
 import sys
+import string
 import time
 from mss.base import MSSBase
 import win32gui
@@ -12,6 +14,33 @@ from typing import Optional
 
 PASS = "PASS"
 FAIL = "FAIL"
+
+
+text_elements = (
+    "GuiTextField", 
+    "GuiCTextField", 
+    "GuiPasswordField", 
+    "GuiLabel", 
+    "GuiTitlebar", 
+    "GuiStatusbar", 
+    "GuiButton", 
+    "GuiTab", 
+    "GuiShell", 
+    "GuiStatusPane")
+
+vkeys = ["ENTER", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
+    None, "SHIFT+F2", "SHIFT+F3", "SHIFT+F4", "SHIFT+F5", "SHIFT+F6", "SHIFT+F7", "SHIFT+F8",
+    "SHIFT+F9", "CTRL+SHIFT+0", "SHIFT+F11", "SHIFT+F12", "CTRL+F1", "CTRL+F2", "CTRL+F3", "CTRL+F4",
+    "CTRL+F5", "CTRL+F6", "CTRL+F7", "CTRL+F8", "CTRL+F9", "CTRL+F10", "CTRL+F11", "CTRL+F12",
+    "CTRL+SHIFT+F1", "CTRL+SHIFT+F2", "CTRL+SHIFT+F3", "CTRL+SHIFT+F4", "CTRL+SHIFT+F5",
+    "CTRL+SHIFT+F6", "CTRL+SHIFT+F7", "CTRL+SHIFT+F8", "CTRL+SHIFT+F9", "CTRL+SHIFT+F10",
+    "CTRL+SHIFT+F11", "CTRL+SHIFT+F12", None, None, None, None, None, None, None, None, None, None,
+    None, None, None, None, None, None, None, None, None, None, None, "CTRL+E", "CTRL+F", "CTRL+A",
+    "CTRL+D", "CTRL+N", "CTRL+O", "SHIFT+DEL", "CTRL+INS", "SHIFT+INS", "ALT+BACKSPACE",
+    "CTRL+PAGEUP", "PAGEUP",
+    "PAGEDOWN", "CTRL+PAGEDOWN", "CTRL+G", "CTRL+R", "CTRL+P", "CTRL+B", "CTRL+K", "CTRL+T",
+    "CTRL+Y",
+    "CTRL+X", "CTRL+C", "CTRL+V", "SHIFT+F10", None, None, "CTRL+#"]
 
 
 def assert_string_has_numeric(text: str, len_value: Optional[int] = None) -> bool:
@@ -60,6 +89,13 @@ def pad(value: str, length: int, char: Optional[str] = "0", right: Optional[bool
         while len(value) < length:
             value = f"{char}{value}"
     return value
+
+
+def string_generator(size: Optional[int]=10, chars: Optional[str]=string.ascii_uppercase + string.digits) -> str:
+    selected_chars = []
+    for i in range(size):
+        selected_chars.append(random.choice(chars))
+    return ''.join(selected_chars)
 
 
 class Screenshot:
