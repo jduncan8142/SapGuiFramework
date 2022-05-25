@@ -416,8 +416,9 @@ class Gui:
             fail_on_error {Optional[bool]} -- If case should fail if there is an error during the execution (default: {True})
             is_task {Optional[bool]} -- If the current function call is a task called by the user (default: {True})
         """
+        self.connection_name = connection_name if connection_name else self.connection_name
         if self.auto_documentation:
-            self.documentation(msg=f"Opening connection for {connection_name}")
+            self.documentation(msg=f"Opening connection for {self.connection_name}")
         if is_task:
             self.task
         if not hasattr(self.sap_app, "OpenConnection"):
@@ -429,15 +430,13 @@ class Gui:
                 if not type(self.sap_app) == win32com.client.CDispatch:
                     self.sap_gui = None
                     self.task_fail("Error while getting SAP scripting engine")
-                if connection_name:
-                    self.connection_name = connection_name
                 self.connection = self.sap_app.OpenConnection(self.connection_name, True)
                 self.session = self.connection.children(self.__session_number)
                 self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.__window_number}]/sbar")
                 self.session_info = self.session.info
                 self.task_pass(ss_name="open_connection")
                 if self.auto_documentation:
-                    self.documentation(msg=f"Connection open for {connection_name}")
+                    self.documentation(msg=f"Connection open for {self.connection_name}")
             except Exception as err:
                 _msg = f"Cannot open connection {self.connection_name}, please check connection name|{err}"
                 if is_task:
