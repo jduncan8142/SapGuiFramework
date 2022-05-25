@@ -433,7 +433,6 @@ class Gui:
                     self.connection_name = connection_name
                 self.connection = self.sap_app.OpenConnection(self.connection_name, True)
                 self.session = self.connection.children(self.__session_number)
-                self.wait(1.0)
                 self.sbar = self.session.findById(f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.__window_number}]/sbar")
                 self.session_info = self.session.info
                 self.task_pass(ss_name="open_connection")
