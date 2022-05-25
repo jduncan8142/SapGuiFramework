@@ -7,10 +7,10 @@ with open('README.md') as f:
 
 setup(
     name="SapGuiFramework",
-    version="0.0.9",
+    version="0.0.10",
     author="Jason Duncan",
     author_email="jason.matthew.duncan@gmail.com",
-    description="A Robocorp Robot Framework Library for controlling the SAP GUI desktop client",
+    description="A Framework Library for controlling the SAP GUI desktop client",
     long_description=long_description,
     long_description_content_type='text/markdown',
     url="https://github.com/jduncan8142/SapGuiFramework",

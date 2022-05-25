@@ -1,6 +1,6 @@
 # SAP GUI Framework
 
-A Robocorp Robot Framework library for controlling the SAP GUI Desktop and focused on testing business processes. The library uses the native SAP GUI scripting engine for interaction with the desktop client application. 
+A Framework library for controlling the SAP GUI Desktop and focused on testing business processes. The library uses the native SAP GUI scripting engine for interaction with the desktop client application. 
 
 Other dependances include the below packages as this library would not be possible without the hard work of so many others. 
 
@@ -16,13 +16,7 @@ This package is available also on PyPi and available for install via pip.
 
 1. pip install
 ```
-pip install SapGuiFramework
-```
-
-2. Import in Robot Framework
-```
-*** Settings ***
-Library    SapGuiFramework
+python -m pip install -e git+file:///c:\Users\duncan\github\SapGuiFramework\#egg=SapGuiFramework
 ```
 
 If you have not already you likely will need Scripting Tracker from Stefan Schnell. You can find it at https://tracker.stschnell.de/
