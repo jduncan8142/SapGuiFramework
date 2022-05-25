@@ -9,7 +9,7 @@ from typing import Optional, Any
 from Utilities.Utilities import *
 from SAPLogger.SapLogger import Logger
 from SapObject.SapObject import SapObject
-from Decorators import *
+from .Decorators import *
 
 
 class Gui:
