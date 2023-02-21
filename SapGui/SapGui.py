@@ -1,8 +1,6 @@
 from types import FunctionType
 import win32com.client
 import re
-import string
-import random
 import base64
 import atexit
 from typing import Optional, Any
@@ -134,7 +132,6 @@ class Gui:
             return True
         except:
             self.logger.log.debug(f"Unable to locate element: {element} ")
-            pass
         return False
 
     @explicit_wait_before(wait_time=__explicit_wait__)
@@ -596,7 +593,7 @@ class Gui:
         _tmp = None
         if is_task:
             self.task
-        try:
+        try:    
             if self.sbar.messageType == "E":
                 _tmp = f"{self.sbar.findById('pane[0]').text} -> Message no. {self.sbar.messageId.strip('')}:{self.sbar.messageNumber}"
             self.task_pass(msg=f"get_statusbar_if_error was successful", ss_name="get_statusbar_if_error")
