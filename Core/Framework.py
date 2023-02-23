@@ -155,8 +155,7 @@ class Session:
         return shot_bytes
 
     def ace_id(self, id: Optional[str] = None) -> str:
-        base_id: str = f"/app/con[{self.__connection_number}]/ses\
-            [{self.__session_number}]/wnd[{self.__window_number}]"
+        base_id: str = f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.__window_number}]"
         if id in ("",  " ", None):
             return base_id
         elif id.startswith("usr"):
@@ -315,7 +314,7 @@ class Session:
             Name = __name, 
             Description = __desc)
         self.collect_step_meta_data()
-        self.case.Steps.append(self.current_step)
+        # self.case.Steps.append(self.current_step)
     
     def open_connection(self, connection_name: str) -> None:
         if not self.current_step:
@@ -365,10 +364,7 @@ class Session:
                 self.sbar = self.session.findById(f"{self.ace_id()}/sbar")
                 self.session_info = self.session.info
         except Exception as err:
-            self.handle_unknown_exception(
-                msg=f"Unhandled exception while collecting session info|{err}", 
-                ss_name="collect_session_info_exception", 
-                error=err)
+            self.logger.log.warning(msg=f"Unhandled exception while collecting session info|{err}")
     
     @explicit_wait_before(wait_time=__explicit_wait__)
     def collect_step_meta_data(self) -> None:
@@ -386,10 +382,7 @@ class Session:
                 self.current_step.Transaction = self.session_info.Transaction
                 self.current_step.User = self.session_info.User
         except Exception as err:
-            self.handle_unknown_exception(
-                msg=f"Unhandled exception while collecting step metadata|{err}", 
-                ss_name="collect_step_metadata_exception", 
-                error=err)
+            self.logger.log.warning(msg=f"Unhandled exception while collecting step metadata|{err}")
     
     @explicit_wait_before(wait_time=__explicit_wait__)
     def collect_case_meta_data(self) -> None:
@@ -400,10 +393,7 @@ class Session:
                 self.case.SapPatchLevel = self.sap_app.PatchLevel
                 self.case.SapRevision = self.sap_app.Revision
         except Exception as err:
-            self.handle_unknown_exception(
-                msg=f"Unhandled exception while collecting case metadata|{err}", 
-                ss_name="collect_case_metadata_exception", 
-                error=err)
+            self.logger.log.warning(msg=f"Unhandled exception while collecting case metadata|{err}")
     
     @explicit_wait_before(wait_time=__explicit_wait__)
     def collect_sbar_element(self) -> None:
@@ -548,7 +538,7 @@ class Session:
             self.documentation(f"Waiting 1 second...")
         else:
             self.documentation(f"Waiting {seconds} seconds...")
-        sleep(secs=seconds)
+        sleep(seconds)
     
     def wait_for_element(self, id: str, timeout: Optional[float] = 60.0) -> None:
         try:
@@ -556,7 +546,7 @@ class Session:
             t = Timer()
             while True:
                 if not self.is_element(element=__id) and t.elapsed() <= timeout:
-                    self.wait(value=0.5)
+                    self.wait(seconds=0.5)
                 else:
                     break
             if not self.is_element(element=__id):
@@ -568,6 +558,7 @@ class Session:
                     msg=f"Found element with id: {__id}", 
                     ss_name="wait_for_element_pass")
         except Exception as err:
+            # self.logger.log.warning(msg=f"Unhandled exception while waiting for element|{err}")
             self.handle_unknown_exception(
                 msg=f"Unhandled exception waiting for element id: {id}", 
                 ss_name="wait_for_element_exception", 
@@ -767,6 +758,37 @@ class Session:
                     ss_name="set_text_exception",
                     error=err)
 
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def set_checkbox(self, id: str, state: bool) -> None:
+        if self.is_element(id):
+            try:
+                if self.current_element.Type == "GuiCheckBox":
+                    self.current_element.selected = state
+                    self.step_pass(msg=f"", ss_name="set_checkbox_pass")
+                else:
+                    self.step_fail(msg=f"", ss_name="set_checkbox_fail")
+            except Exception as err:
+                self.handle_unknown_exception(
+                    msg=f"Unhandled exception while selecting checkbox: {self.current_element.Id} \
+                        in: {self.current_element.Id}",
+                    ss_name="set_checkbox_exception",
+                    error=err)
+        else:
+            self.handle_unknown_exception(
+                msg=f"Unhandled exception while selecting element: {self.current_element.Id}",
+                ss_name="set_checkbox_exception",
+                error=err)
+    
+    def visualize_element(self, id: str, visualize: Optional[bool] = False) -> None:
+        if self.is_element(id):
+            try:
+                self.current_element.visualize(visualize) 
+            except Exception as err:
+                self.handle_unknown_exception(
+                    msg=f"Unhandled exception visualizing element: {self.current_element.Id}",
+                    ss_name="visualize_element_exception",
+                    error=err)
+
     def try_and_continue(self, func: str, *args, **kwargs) -> Any:
         __result = None
         try:
@@ -850,3 +872,207 @@ class Session:
                     msg=f"Unhandled exception sending BACK.",
                     ss_name="back_exception",
                     error=err)
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def f8(self) -> None:
+        try:
+            self.send_vkey(vkey="F8")
+            self.step_pass(msg=f"Successfully sent F8.", ss_name="f8_pass")
+        except Exception as err:
+            self.handle_unknown_exception(
+                    msg=f"Unhandled exception sending F8.",
+                    ss_name="f8_exception",
+                    error=err)
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def f5(self) -> None:
+        try:
+            self.send_vkey(vkey="F5")
+            self.step_pass(msg=f"Successfully sent F5.", ss_name="f5_pass")
+        except Exception as err:
+            self.handle_unknown_exception(
+                    msg=f"Unhandled exception sending F5.",
+                    ss_name="f5_exception",
+                    error=err)
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def f6(self) -> None:
+        try:
+            self.send_vkey(vkey="F6")
+            self.step_pass(msg=f"Successfully sent F6.", ss_name="f6_pass")
+        except Exception as err:
+            self.handle_unknown_exception(
+                    msg=f"Unhandled exception sending F6.",
+                    ss_name="f6_exception",
+                    error=err)
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def f7(self) -> None:
+        try:
+            self.send_vkey(vkey="F7")
+            self.step_pass(msg=f"Successfully sent F7.", ss_name="f7_pass")
+        except Exception as err:
+            self.handle_unknown_exception(
+                    msg=f"Unhandled exception sending F7.",
+                    ss_name="f7_exception",
+                    error=err)
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def f4(self) -> None:
+        try:
+            self.send_vkey(vkey="F4")
+            self.step_pass(msg=f"Successfully sent F4.", ss_name="f4_pass")
+        except Exception as err:
+            self.handle_unknown_exception(
+                    msg=f"Unhandled exception sending F4.",
+                    ss_name="f4_exception",
+                    error=err)
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def f3(self) -> None:
+        try:
+            self.send_vkey(vkey="F3")
+            self.step_pass(msg=f"Successfully sent F3.", ss_name="f3_pass")
+        except Exception as err:
+            self.handle_unknown_exception(
+                    msg=f"Unhandled exception sending F3.",
+                    ss_name="f3_exception",
+                    error=err)
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def f2(self) -> None:
+        try:
+            self.send_vkey(vkey="F2")
+            self.step_pass(msg=f"Successfully sent F2.", ss_name="f2_pass")
+        except Exception as err:
+            self.handle_unknown_exception(
+                    msg=f"Unhandled exception sending F2.",
+                    ss_name="f2_exception",
+                    error=err)
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def f1(self) -> None:
+        try:
+            self.send_vkey(vkey="F1")
+            self.step_pass(msg=f"Successfully sent F1.", ss_name="f1_pass")
+        except Exception as err:
+            self.handle_unknown_exception(
+                    msg=f"Unhandled exception sending F1.",
+                    ss_name="f1_exception",
+                    error=err)
+
+    # Assertions
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def assert_element_value_equal(self, id: str, expected_value: str) -> None:
+        if self.is_element(id):
+            try:
+                if self.get_value(id=self.current_element.Id) == expected_value:
+                    self.step_pass(
+                        msg=f"Assertion equal passed for element: {self.current_element.Id} with \
+                            actual value: {self.get_value(id=self.current_element.Id)} \
+                            and expected value: {expected_value}", 
+                        ss_name="assert_element_value_equal_pass")
+                else:
+                    self.step_fail(
+                        msg=f"Assertion equal failed for element: {self.current_element.Id} with \
+                            actual value: {self.get_value(id=self.current_element.Id)} \
+                            and expected value: {expected_value}", 
+                        ss_name="assert_element_value_equal_fail")
+            except Exception as err:
+                self.handle_unknown_exception(
+                    msg=f"Unhandled exception while asserting element: {self.current_element.Id} \
+                        equals: {expected_value}",
+                    ss_name="assert_element_value_equal_exception",
+                    error=err)
+        else:
+            self.step_fail(
+                msg=f"Assertion equal failed, element: {self.current_element.Id} is not present.", 
+                ss_name="assert_element_value_equal_fail")
+    
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def assert_element_value_not_equal(self, id: str, expected_value: str) -> None:
+        if self.is_element(id):
+            try:
+                if self.get_value(id=self.current_element.Id) != expected_value:
+                    self.step_pass(
+                        msg=f"Assertion not equal passed for element: {self.current_element.Id} with \
+                            actual value: {self.get_value(id=self.current_element.Id)} \
+                            and expected value: {expected_value}", 
+                        ss_name="assert_element_value_not_equal_pass")
+                else:
+                    self.step_fail(
+                        msg=f"Assertion not equal failed for element: {self.current_element.Id} with \
+                            actual value: {self.get_value(id=self.current_element.Id)} \
+                            and expected value: {expected_value}", 
+                        ss_name="assert_element_value_not_equal_fail")
+            except Exception as err:
+                self.handle_unknown_exception(
+                    msg=f"Unhandled exception while asserting element: {self.current_element.Id} \
+                        not equal: {expected_value}",
+                    ss_name="assert_element_value_not_equal_exception",
+                    error=err)
+        else:
+            self.step_fail(
+                msg=f"Assertion not equal failed, element: {self.current_element.Id} is not present.", 
+                ss_name="assert_element_value_not_equal_fail")
+    
+    @explicit_wait_before(wait_time=__explicit_wait__)
+    def assert_element_present(self, id: str) -> None:
+        if self.is_element(id):
+            self.step_pass(
+                msg=f"Assertion passed, element: {self.current_element.Id} is present.", 
+                ss_name="assert_element_present_pass")
+        else:
+            self.step_fail(
+                msg=f"Assertion failed, element: {self.current_element.Id} is not present.", 
+                ss_name="assert_element_present_fail")
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def assert_element_changeable(self, id: str, expected: bool) -> None:
+        if self.is_element(id):
+            try:
+                if self.current_element.Changeable == expected:
+                    self.step_pass(
+                        msg=f"Assertion changeable passed for element: {self.current_element.Id}", 
+                        ss_name="assert_element_changeable_pass")
+                else:
+                    self.step_fail(
+                        msg=f"Assertion changeable failed for element: {self.current_element.Id}", 
+                        ss_name="assert_element_changeable_fail")
+            except Exception as err:
+                self.handle_unknown_exception(
+                    msg=f"Unhandled exception while asserting changeability \
+                        of element: {self.current_element.Id}",
+                    ss_name="assert_element_changeable_exception",
+                    error=err)
+        else:
+            self.step_fail(
+                msg=f"Assertion changeable failed, element: {self.current_element.Id} is not present.", 
+                ss_name="assert_element_changeable_fail")
+
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def assert_element_value_contains(self, id: str, contains_value: str) -> None:
+        if self.is_element(id):
+            try:
+                if contains_value in self.get_value(id=self.current_element.Id):
+                    self.step_pass(
+                        msg=f"Assertion value contains for element: {self.current_element.Id} with \
+                            actual value: {self.get_value(id=self.current_element.Id)} \
+                            & expected contains value: {contains_value}", 
+                        ss_name="assert_element_value_contains_pass")
+                else:
+                    self.step_fail(
+                        msg=f"Assertion value contains failed for element: {self.current_element.Id} with \
+                            actual value: {self.get_value(id=self.current_element.Id)} \
+                            & expected value: {contains_value}", 
+                        ss_name="assert_element_value_contains_fail")
+            except Exception as err:
+                self.handle_unknown_exception(
+                    msg=f"Unhandled exception while asserting element: {self.current_element.Id} \
+                        contains: {contains_value}",
+                    ss_name="assert_element_value_contains_exception",
+                    error=err)
+        else:
+            self.step_fail(
+                msg=f"Assertion value contains failed, element: {self.current_element.Id} is not present.", 
+                ss_name="assert_element_value_contains_fail")

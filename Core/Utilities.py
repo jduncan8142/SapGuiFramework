@@ -36,6 +36,10 @@ def string_generator(size: Optional[int]=10, chars: Optional[str]=string.ascii_u
     for i in range(size):
         selected_chars.append(random.choice(chars))
     return ''.join(selected_chars)
+
+
+def get_date_time_string(format: str) -> str:
+    return datetime.datetime.now().strftime(format)
     
 
 def assert_string_has_numeric(text: str, len_value: Optional[int] = None) -> bool:
