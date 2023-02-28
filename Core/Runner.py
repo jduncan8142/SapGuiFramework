@@ -1,12 +1,14 @@
 from Flow.Actions import Step
+import inspect
 
 
 class Runner:
     def __init__(self) -> None:
         pass    
     
-    def execute_step(self, step_id: int, step: Step) -> None:
+    def exec_step(self, step_id: int, step: Step) -> None:
         self.current_step = step
+        step.Action()
         if self.current_step.Transaction != self.current_transaction:
             self.start_transaction(transaction=step.Transaction)
         try:
@@ -23,7 +25,7 @@ class Runner:
         #     self.step_fail(msg=f"{self.current_step.Description}", ss_name=self.current_step.Name)
         #     self.handle_unknown_exception(f"Unhandled exception: {err} while executing {self.current_step.PyCode}", ss_name="execute_step::UnhandledException")
     
-    def execute_case(self) -> None:
+    def exec_case(self) -> None:
         self.collect_case_meta_data()
         with open(self.case.StepsFile, "a") as sf:
             sf.writelines([f"{i.PyCode}\n" for i in self.case.Steps])

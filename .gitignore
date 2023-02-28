@@ -136,3 +136,4 @@ dmypy.json
 *.ipynb
 test_case_1.yml
 .vscode/settings.json
+settings.json

@@ -17,9 +17,13 @@ class Step:
     def default_args() -> list:
         return []
     
+    def default_kwargs() -> dict:
+        return {}
+    
     Action: str = None
     ElementId: str = None
     Args: list = field(default_factory=default_args)
+    Kwargs: dict = field(default_factory=default_kwargs)
     
     Name: str = field(default_factory=default_name)
     Description: str = field(default_factory=default_description)

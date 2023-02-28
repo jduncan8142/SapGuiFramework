@@ -159,3 +159,15 @@ class TextElements(Enum):
     GuiTab = "GuiTab"
     GuiShell = "GuiShell"
     GuiStatusPane = "GuiStatusPane"
+
+
+@dataclass
+class Table:
+    Id: str 
+    Type: str
+    TableObject: object
+    RowCount: int 
+    VisibleRows: int 
+    Columns: list[object]
+    Rows: list[object]
+    Data: list[dict]
