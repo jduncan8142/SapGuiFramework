@@ -38,7 +38,7 @@ def string_generator(size: Optional[int]=10, chars: Optional[str]=string.ascii_u
     return ''.join(selected_chars)
 
 
-def get_date_time_string(format: str) -> str:
+def get_date_time_string(format: Optional[str] = "%m/%d/%Y%H%M%S") -> str:
     return datetime.datetime.now().strftime(format)
     
 
@@ -96,7 +96,7 @@ def explicit_wait_after(_func = None, *, wait_time: float = 0.0):
 
 class Timer:
     """
-    A basic timer to user when waiting for element to be displayed. 
+    A basic timer to use when waiting for element to be displayed. 
     """
     def __init__(self) -> None:
         self.start_time = time.time()

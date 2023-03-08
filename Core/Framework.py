@@ -10,7 +10,6 @@ from Core.SAP import *
 from time import sleep
 import atexit
 import base64
-import inspect
 import datetime
 import re
 
@@ -56,36 +55,9 @@ class Session:
                 Name="Create New Session", 
                 Description="Creates and return a new SAP session object.")
     
-    def exit(self) -> None:
-        try:
-            self.connection.closeSession(self.ace_id())
-            self.connection.closeConnection()
-            self.step_pass(
-                msg=f"Successfully exited session.", 
-                ss_name="exit_pass")
-        except Exception as err:
-            self.handle_unknown_exception(
-                msg="Unknown exception while exiting session.",
-                ss_name="exit_exception", 
-                error=err)
-    
-    def cleanup(self) -> None:
-        if self.case.CloseSAPOnCleanup:
-            self.exit()
-        if self.case.Status.Result is None:
-            if len(self.case.Status.FailedSteps) != 0:
-                self.case.Status.Result = Result.FAIL
-        else:
-            self.case.Status.Result = Result.PASS
-        self.documentation(
-            f"{self.case.Name} completed with \
-                status: {self.case.Status.Result.value}")
-    
-    def hard_copy(
-        self, 
-        filename: str, 
-        image_type: Optional[str] = "PNG", 
-        pos: Optional[tuple[int, int, int, int]] = None) -> bytes:
+    # Screenshot Actions
+    def hard_copy(self, filename: str, image_type: Optional[str] = "PNG", 
+                  pos: Optional[tuple[int, int, int, int]] = None) -> bytes:
         try:
             if pos is not None:
                 img = self.main_window.HardCopy(
@@ -153,6 +125,97 @@ class Session:
                 ss_name="take_screenshot_exception", 
                 error=err)
         return shot_bytes
+    
+    # Helpers
+    def is_element(self, element: str) -> bool:
+        try:
+            __element = self.ace_id(element)
+            self.current_element = self.session.findById(__element)
+            self.step_pass(
+                msg="Element: %s is valid" % __element, 
+                ss_name="is_element_pass")
+            return True
+        except Exception as err:
+            self.handle_unknown_exception(
+                msg="SAP element %s id not found." % __element, 
+                ss_name="is_element_exception",
+                error=err)
+        return False
+
+    def exit(self) -> None:
+        try:
+            self.connection.closeSession(self.ace_id())
+            self.connection.closeConnection()
+            self.step_pass(
+                msg=f"Successfully exited session.", 
+                ss_name="exit_pass")
+        except Exception as err:
+            self.handle_unknown_exception(
+                msg="Unknown exception while exiting session.",
+                ss_name="exit_exception", 
+                error=err)
+    
+    def cleanup(self) -> None:
+        if self.case.CloseSAPOnCleanup:
+            self.exit()
+        if self.case.Status.Result is None:
+            if len(self.case.Status.FailedSteps) != 0:
+                self.case.Status.Result = Result.FAIL
+        else:
+            self.case.Status.Result = Result.PASS
+        self.documentation(
+            f"{self.case.Name} completed with \
+                status: {self.case.Status.Result.value}")
+
+    def wait(self, seconds: float) -> None:
+        if seconds == 1.0:
+            self.documentation(f"Waiting 1 second...")
+        else:
+            self.documentation(f"Waiting {seconds} seconds...")
+        sleep(seconds)
+    
+    def wait_for_element(self, id: str, timeout: Optional[float] = 60.0) -> None:
+        try:
+            __id = self.ace_id(id)
+            t = Timer()
+            while True:
+                if not self.is_element(element=__id) and t.elapsed() <= timeout:
+                    self.wait(seconds=0.5)
+                else:
+                    break
+            if not self.is_element(element=__id):
+                self.step_fail(
+                    msg=f"No element found with id: {__id}", 
+                    ss_name="wait_for_element_fail")
+            else:
+                self.step_pass(
+                    msg=f"Found element with id: {__id}", 
+                    ss_name="wait_for_element_pass")
+        except Exception as err:
+            # self.logger.log.warning(msg=f"Unhandled exception while waiting for element|{err}")
+            self.handle_unknown_exception(
+                msg=f"Unhandled exception waiting for element id: {id}", 
+                ss_name="wait_for_element_exception", 
+                error=err)
+
+    def try_and_continue(self, func: object, *args, **kwargs) -> Any:
+        __result = None
+        try:
+            if hasattr(self, func) and callable(func := getattr(self, func)):
+                __result = func(*args, **kwargs)
+        except Exception as err:
+            self.logger.log.info(f"Unhandled exception during Try and Continue \
+                wrapped function: {func}")
+            self.current_step.Status.Result = Result.WARN
+            self.current_step.Status.Error = err
+            self.case.Status.PassedSteps.append(self.current_step)
+            if self.case.ScreenShotOnPass:
+                self.case.Status.PassedScreenShots.append(
+                    self.capture_fullscreen(
+                        screenshot_name="try_and_continue_exception"
+                    )
+                )            
+        return __result
     
     def parse_document_number(self) -> str:
         return re.search("\d+", self.sbar.Text).group(0)
@@ -315,7 +378,37 @@ class Session:
             Description = __desc)
         self.collect_step_meta_data()
         self.case.Steps.append(self.current_step)
+
+    @explicit_wait_before(wait_time=__explicit_wait__)
+    def collect_step_meta_data(self) -> None:
+        try:
+            if self.current_step and self.session:
+                self.current_step.ApplicationServer = self.session_info.ApplicationServer
+                self.current_step.Language = self.session_info.Language
+                self.current_step.Program = self.session_info.Program
+                self.current_step.ResponseTime = self.session_info.ResponseTime
+                self.current_step.RoundTrips = self.session_info.RoundTrips
+                self.current_step.ScreenNumber = self.session_info.ScreenNumber
+                self.current_step.SystemName = self.session_info.SystemName
+                self.current_step.SystemNumber = self.session_info.SystemNumber
+                self.current_step.SystemSessionId = self.session_info.SystemSessionId
+                self.current_step.Transaction = self.session_info.Transaction
+                self.current_step.User = self.session_info.User
+        except Exception as err:
+            self.logger.log.warning(msg=f"Unhandled exception while collecting step metadata|{err}")
     
+    @explicit_wait_before(wait_time=__explicit_wait__)
+    def collect_case_meta_data(self) -> None:
+        try:
+            if self.case and self.session:
+                self.case.SapMajorVersion = self.sap_app.MajorVersion
+                self.case.SapMinorVersion = self.sap_app.MinorVersion
+                self.case.SapPatchLevel = self.sap_app.PatchLevel
+                self.case.SapRevision = self.sap_app.Revision
+        except Exception as err:
+            self.logger.log.warning(msg=f"Unhandled exception while collecting case metadata|{err}")
+    
+    # Connection Actions
     def open_connection(self, connection_name: str) -> None:
         self.new_step(action="open_connection", connection_name=connection_name)
         self.connection_name = connection_name if connection_name else self.connection_name
@@ -354,6 +447,22 @@ class Session:
                     ss_name="open_connection_exception", 
                     error=err) 
 
+    # Session Actions
+    def restart_session(self, delay: Optional[float] = 0.0) -> None:
+        try:
+            self.exit()
+            self.open_connection(self.connection_name)
+            self.wait(seconds=delay)
+            self.maximize_window()
+            self.step_pass(
+                msg="Restarted session successfully.", 
+                ss_name="restart_session_pass")
+        except Exception as err:
+            self.handle_unknown_exception(
+                msg="Unhandled exception while restarting session.", 
+                ss_name="restart_session_exception", 
+                error=err)
+
     @explicit_wait_before(wait_time=__explicit_wait__)
     def collect_session_info(self) -> None:
         try:
@@ -370,63 +479,64 @@ class Session:
         except Exception as err:
             self.logger.log.warning(msg=f"Unhandled exception while collecting session info|{err}")
     
+    # Window Actions
     @explicit_wait_before(wait_time=__explicit_wait__)
-    def collect_step_meta_data(self) -> None:
+    def check_for_modal(self, match_text: str, 
+                        match_id: Optional[str] = None, 
+                        is_match: Optional[bool]=True, 
+                        action: Optional[object]=None, 
+                        **kwargs) -> bool:
+        modal_window = None
         try:
-            if self.current_step and self.session:
-                self.current_step.ApplicationServer = self.session_info.ApplicationServer
-                self.current_step.Language = self.session_info.Language
-                self.current_step.Program = self.session_info.Program
-                self.current_step.ResponseTime = self.session_info.ResponseTime
-                self.current_step.RoundTrips = self.session_info.RoundTrips
-                self.current_step.ScreenNumber = self.session_info.ScreenNumber
-                self.current_step.SystemName = self.session_info.SystemName
-                self.current_step.SystemNumber = self.session_info.SystemNumber
-                self.current_step.SystemSessionId = self.session_info.SystemSessionId
-                self.current_step.Transaction = self.session_info.Transaction
-                self.current_step.User = self.session_info.User
-        except Exception as err:
-            self.logger.log.warning(msg=f"Unhandled exception while collecting step metadata|{err}")
-    
-    @explicit_wait_before(wait_time=__explicit_wait__)
-    def collect_case_meta_data(self) -> None:
-        try:
-            if self.case and self.session:
-                self.case.SapMajorVersion = self.sap_app.MajorVersion
-                self.case.SapMinorVersion = self.sap_app.MinorVersion
-                self.case.SapPatchLevel = self.sap_app.PatchLevel
-                self.case.SapRevision = self.sap_app.Revision
-        except Exception as err:
-            self.logger.log.warning(msg=f"Unhandled exception while collecting case metadata|{err}")
-    
-    @explicit_wait_before(wait_time=__explicit_wait__)
-    def check_popup(self) -> None:
-        try:
-            __w = self.session.ActiveWindow
-            if __w.Type == "GuiModalWindow":
-                if "Save Incomplete Document" in __w.Text:
-                    self.click_element(id="/app/con[0]/ses[0]/wnd[1]/usr/btnSPOP-VAROPTION1")
-                else:
-                    __w.Close()
+            modal_window = self.session.ActiveWindow
         except Exception as err:
             self.handle_unknown_exception(
                 f"Unable to check for popup.", 
-                ss_name="check_popup_exception", 
+                ss_name="check_for_modal_exception", 
                 error=err)
-    
-    def availability_control(self) -> None:
-        if self.is_element("usr/btnBUT3"):
-            try:
-                if "availability" in self.titl.Text.lower():
-                    try:
-                        self.click_element(id=self.current_element.Id)
-                    except Exception as err2:
-                        self.logger.log.debug(f"Availability control error|{err2}")
-            except Exception as err:
-                self.handle_unknown_exception(
-                    f"Unable to process availability control", 
-                    ss_name="availability_control_exception", 
-                    error=err)
+        if modal_window is not None:
+            if modal_window.Type == "GuiModalWindow":
+                if match_id is None:
+                    if match_text in modal_window.Text:
+                        if is_match:
+                            if action is not None:
+                                action(**kwargs)
+                                return True
+                            else:
+                                # modal_window.Close()
+                                return True
+                    else:
+                        if not is_match:
+                            if action is not None:
+                                action(**kwargs)
+                                return True
+                            else:
+                                return True
+                else:
+                    if match_id is not None:
+                        __text = None
+                        try:
+                            __text = self.session.FindById(match_id).Text
+                        except Exception as err:
+                            self.handle_unknown_exception(
+                                f"Unable to locate match_id: {match_id}.", 
+                                ss_name="check_for_modal_match_id_exception", 
+                                error=err)
+                        if match_text in __text:
+                            if is_match:
+                                if action is not None:
+                                    action(**kwargs)
+                                    return True
+                                else:
+                                    return True
+                        else:
+                            if not is_match:
+                                if action is not None:
+                                    action(**kwargs)
+                                    return True
+                                else:
+                                    return True
+        return False
     
     def start_transaction(self, transaction: str) -> None:
         self.new_step(action="start_transaction", transaction=transaction)
@@ -450,21 +560,6 @@ class Session:
                 msg="Unhandled exception during end_transaction.", 
                 ss_name="end_transaction_exception", 
                 error=err)
-            
-    def is_element(self, element: str) -> bool:
-        try:
-            __element = self.ace_id(element)
-            self.current_element = self.session.findById(__element)
-            self.step_pass(
-                msg="Element: %s is valid" % __element, 
-                ss_name="is_element_pass")
-            return True
-        except Exception as err:
-            self.handle_unknown_exception(
-                msg="SAP element %s id not found." % __element, 
-                ss_name="is_element_exception",
-                error=err)
-        return False
     
     @explicit_wait_before(wait_time=__explicit_wait__)
     def set_v_scrollbar(self, id: str, pos: int) -> None:
@@ -529,37 +624,6 @@ class Session:
                     ss_name="get_h_scrollbar_exception",
                     error=err)
         return __position
-    
-    def wait(self, seconds: float) -> None:
-        if seconds == 1.0:
-            self.documentation(f"Waiting 1 second...")
-        else:
-            self.documentation(f"Waiting {seconds} seconds...")
-        sleep(seconds)
-    
-    def wait_for_element(self, id: str, timeout: Optional[float] = 60.0) -> None:
-        try:
-            __id = self.ace_id(id)
-            t = Timer()
-            while True:
-                if not self.is_element(element=__id) and t.elapsed() <= timeout:
-                    self.wait(seconds=0.5)
-                else:
-                    break
-            if not self.is_element(element=__id):
-                self.step_fail(
-                    msg=f"No element found with id: {__id}", 
-                    ss_name="wait_for_element_fail")
-            else:
-                self.step_pass(
-                    msg=f"Found element with id: {__id}", 
-                    ss_name="wait_for_element_pass")
-        except Exception as err:
-            # self.logger.log.warning(msg=f"Unhandled exception while waiting for element|{err}")
-            self.handle_unknown_exception(
-                msg=f"Unhandled exception waiting for element id: {id}", 
-                ss_name="wait_for_element_exception", 
-                error=err)
 
     @explicit_wait_before(wait_time=__explicit_wait__)
     def maximize_window(self) -> None:
@@ -572,26 +636,12 @@ class Session:
                 ss_name="maximize_window_exception", 
                 error=err)
 
-    def restart_session(self, delay: Optional[float] = 0.0) -> None:
-        try:
-            self.exit()
-            self.open_connection(self.connection_name)
-            self.wait(seconds=delay)
-            self.maximize_window()
-            self.step_pass(
-                msg="Restarted session successfully.", 
-                ss_name="restart_session_pass")
-        except Exception as err:
-            self.handle_unknown_exception(
-                msg="Unhandled exception while restarting session.", 
-                ss_name="restart_session_exception", 
-                error=err)
-
+    # Keyboard & Mouse Actions
     @explicit_wait_after(wait_time=__explicit_wait__)
     def click_element(self, id: str) -> None:
         if self.is_element(id):
             try:
-                if self.current_element.Type in ("GuiTab", "GuiMenu"):
+                if self.current_element.Type in ("GuiTab", "GuiMenu", "GuiRadioButtonq"):
                     self.current_element.Select()
                     self.step_pass(
                         msg="Successfully clicked element: %s" % self.current_element.Id, 
@@ -790,36 +840,8 @@ class Session:
                 msg=f"Unhandled exception while selecting element: {self.current_element.Id}",
                 ss_name="set_checkbox_exception",
                 error=err)
-    
-    def visualize_element(self, id: str, visualize: Optional[bool] = False) -> None:
-        if self.is_element(id):
-            try:
-                self.current_element.visualize(visualize) 
-            except Exception as err:
-                self.handle_unknown_exception(
-                    msg=f"Unhandled exception visualizing element: {self.current_element.Id}",
-                    ss_name="visualize_element_exception",
-                    error=err)
 
-    def try_and_continue(self, func: str, *args, **kwargs) -> Any:
-        __result = None
-        try:
-            if hasattr(self, func) and callable(func := getattr(self, func)):
-                __result = func(*args, **kwargs)
-        except Exception as err:
-            self.logger.log.info(f"Unhandled exception during Try and Continue \
-                wrapped function: {func}")
-            self.current_step.Status.Result = Result.WARN
-            self.current_step.Status.Error = err
-            self.case.Status.PassedSteps.append(self.current_step)
-            if self.case.ScreenShotOnPass:
-                self.case.Status.PassedScreenShots.append(
-                    self.capture_fullscreen(
-                        screenshot_name="try_and_continue_exception"
-                    )
-                )            
-        return __result
-
+    # Buttons & Keys
     @explicit_wait_after(wait_time=__explicit_wait__)
     def send_vkey(self, vkey: str) -> None:
         __vkey_id: str = str(vkey)
@@ -851,7 +873,6 @@ class Session:
                 ss_name="send_vkey_exception",
                 error=err)
 
-    # Buttons & Keys
     @explicit_wait_after(wait_time=__explicit_wait__)
     def enter(self) -> None:
         self.new_step(action="enter")
@@ -1092,51 +1113,19 @@ class Session:
                 msg=f"Assertion value contains failed, element: {self.current_element.Id} is not present.", 
                 ss_name="assert_element_value_contains_fail")
 
-    # Sales Orders
-    def fill_va01_initial_screen(self, order_type: str, sales_org: str, 
-                                 dist_ch: str, division: str, 
-                                 sales_office: Optional[str] = "", 
-                                 sales_group: Optional[str] = "") -> None:
-        self.set_text(id="usr/ctxtVBAK-AUART", text=order_type)
-        self.set_text(id="usr/ctxtVBAK-VKORG", text=sales_org)
-        self.set_text(id="usr/ctxtVBAK-VTWEG", text=dist_ch)
-        self.set_text(id="usr/ctxtVBAK-SPART", text=division)
-        self.set_text(id="usr/ctxtVBAK-VKBUR", text=sales_office)
-        self.set_text(id="usr/ctxtVBAK-VKGRP", text=sales_group)
-        self.enter()
+    # Screen Parsing & Visualization
+    def visualize_element(self, id: str, visualize: Optional[bool] = False) -> None:
+        if self.is_element(id):
+            try:
+                self.current_element.visualize(visualize) 
+            except Exception as err:
+                self.handle_unknown_exception(
+                    msg=f"Unhandled exception visualizing element: {self.current_element.Id}",
+                    ss_name="visualize_element_exception",
+                    error=err)
 
-    def fill_va01_header(self, sold_to: str, ship_to: str, 
-                         customer_reference: Optional[str] = None, 
-                         customer_reference_date: Optional[str] = None) -> None:
-        self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUAGV-KUNNR", text=sold_to)
-        self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUWEV-KUNNR", text=ship_to)
-        if customer_reference is not None:
-            self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=customer_reference)
-        else:
-            self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=f"PO_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}")
-        if customer_reference_date is not None:
-            self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/ctxtVBKD-BSTDK", text=customer_reference_date)
-        self.enter()
-
-    def fill_va01_line_items(self, line_items: list[dict]) -> None:
-        self.click_element(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01")
-        for item in line_items:
-            # self.click_element(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/subSUBSCREEN_BUTTONS:SAPMV45A:4050/btnBT_POAN")
-            self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtRV45A-MABNR[1,0]", text=item.get('material'))
-            self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/txtRV45A-KWMENG[2,0]", text=item.get('target_quantity'))
-            self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-VRKME[3,0]", text=item.get('uom'))
-            if "customer_material" in item.keys():
-                self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-KDMAT[12,0]", text=item.get('customer_material'))
-            if "item_category" in item.keys():
-                self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-PSTYV[7,0]", text=item.get('item_category'))
-            self.enter()
-    
-    def display_delivery(self, delivery: str) -> None:
-        self.start_transaction("VL03N")
-        self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLIKP-VBELN", text=delivery)
-        self.wait(0.5)
-        self.enter()
-    
+    # Compound functions
+    ## Tables
     def dump_table_values(self, table_id: str) -> Table:
         __table = self.session.FindById(table_id)
         if __table.Type == "GuiTableControl":
@@ -1177,8 +1166,67 @@ class Session:
                         cells[__column_order[cell]] = __table.GetCellValue(row, __column_order[cell])
                     my_table.Data.append(cells)
                 return my_table
+    
+    ## Sales Orders
+    def availability_control(self) -> None:
+        if self.is_element("usr/btnBUT3"):
+            try:
+                if "availability" in self.titl.Text.lower():
+                    try:
+                        self.click_element(id=self.current_element.Id)
+                    except Exception as err2:
+                        self.logger.log.debug(f"Availability control error|{err2}")
+            except Exception as err:
+                self.handle_unknown_exception(
+                    f"Unable to process availability control", 
+                    ss_name="availability_control_exception", 
+                    error=err)
+    
+    def fill_va01_initial_screen(self, order_type: str, sales_org: str, 
+                                 dist_ch: str, division: str, 
+                                 sales_office: Optional[str] = "", 
+                                 sales_group: Optional[str] = "") -> None:
+        self.set_text(id="usr/ctxtVBAK-AUART", text=order_type)
+        self.set_text(id="usr/ctxtVBAK-VKORG", text=sales_org)
+        self.set_text(id="usr/ctxtVBAK-VTWEG", text=dist_ch)
+        self.set_text(id="usr/ctxtVBAK-SPART", text=division)
+        self.set_text(id="usr/ctxtVBAK-VKBUR", text=sales_office)
+        self.set_text(id="usr/ctxtVBAK-VKGRP", text=sales_group)
+        self.enter()
+
+    def fill_va01_header(self, sold_to: str, ship_to: str, 
+                         customer_reference: Optional[str] = None, 
+                         customer_reference_date: Optional[str] = None) -> None:
+        self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUAGV-KUNNR", text=sold_to)
+        self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUWEV-KUNNR", text=ship_to)
+        if customer_reference is not None:
+            self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=customer_reference)
+        else:
+            self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=f"PO_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        if customer_reference_date is not None:
+            self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/ctxtVBKD-BSTDK", text=customer_reference_date)
+        self.enter()
+
+    def fill_va01_line_items(self, line_items: list[dict]) -> None:
+        self.click_element(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01")
+        for item in line_items:
+            # self.click_element(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/subSUBSCREEN_BUTTONS:SAPMV45A:4050/btnBT_POAN")
+            self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtRV45A-MABNR[1,0]", text=item.get('material'))
+            self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/txtRV45A-KWMENG[2,0]", text=item.get('target_quantity'))
+            self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-VRKME[3,0]", text=item.get('uom'))
+            if "customer_material" in item.keys():
+                self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-KDMAT[12,0]", text=item.get('customer_material'))
+            if "item_category" in item.keys():
+                self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-PSTYV[7,0]", text=item.get('item_category'))
+            self.enter()
+    
+    ## Delivery
+    def display_delivery(self, delivery: str) -> None:
+        self.start_transaction("VL03N")
+        self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLIKP-VBELN", text=delivery)
+        self.wait(0.5)
+        self.enter()
 
     def get_delivery_header_outputs(self, delivery: str) -> list:
         self.display_delivery(delivery=delivery)
-        self.click_element(id="/app/con[0]/ses[0]/wnd[0]/mbar/menu[3]/menu[2]/menu[0]")
-        
+        self.click_element(id="/app/con[0]/ses[0]/wnd[0]/mbar/menu[3]/menu[2]/menu[0]") 

@@ -1,13 +1,75 @@
 from dataclasses import dataclass, field
 from typing import Optional
 from pathlib import Path
-from Utilities import get_main_dir
+from Core.Utilities import get_main_dir
 from enum import Enum
 import xml.etree.ElementTree as ET
 from Flow.Actions import Step
 from Flow.Results import ResultCase
 from CRUD.Models import LoggingConfig
 from datetime import datetime
+
+
+@dataclass
+class Condition:
+    Type:str
+    Value: str
+    Currency: str
+
+
+@dataclass
+class SalesOrderHeader:
+    OrderType: str
+    SalesOrg: str
+    DistCh: str
+    Division: str
+    SoldTo: str
+    ShipTo: str
+    CustReference: str = None
+    CustRefDate: Optional[str] = None
+    ShippingCondition: Optional[str] = None
+    RequestedDeliveryDate: Optional[str] = None
+    CompleteDelivery: Optional[bool] = None
+    DeliveryBlock: Optional[str] = None
+    BillingBlock: Optional[str] = None
+    PaymentTerms: Optional[str] = None
+    IncoVersion: Optional[str] = None
+    Incoterms: Optional[str] = None
+    IncoLocation1: Optional[str] = None
+    IncoLocation2: Optional[str] = None
+    OrderReason: Optional[str] = None
+    DeliveryPlant: Optional[str] = None
+    TotalWeight: Optional[str] = None
+    Volume: Optional[str] = None
+    PricingDate: Optional[str] = None
+
+
+@dataclass
+class SalesOrderItem:
+    Material: str
+    Qty: str
+    Uom: str
+    LineNumber: Optional[str] = None
+    ItemDescription: Optional[str] = None
+    ItemCategory: Optional[str] = None
+    WbsElement: Optional[str] = None
+    ReasonForRejection: Optional[str] = None
+    CustMaterialNum: Optional[str] = None
+    CustReference: Optional[str] = None
+    POItem: Optional[str] = None
+    FirstDate: Optional[str] = None
+    Plant: Optional[str] = None
+    StorageLocation: Optional[str] = None
+    ShippingPoint: Optional[str] = None
+    ProfitCenter: Optional[str] = None
+    PricingConditions: Optional[list[Condition]] = None
+
+
+@dataclass
+class SalesOrder:
+    Header: SalesOrderHeader
+    Items: list[SalesOrderItem]
+
 
 @dataclass
 class Systems:
@@ -23,21 +85,12 @@ class Systems:
 
 
 @dataclass
-class Case:
-    def empty_string() -> str:
-        return ""
-
-    def default_case_path() -> Path:
-        return get_main_dir()
-    
+class Case:    
     def default_explicit_wait() -> float:
         return 0.25
     
     def default_date_format() -> str:
         return "%m/%d/%Y"
-    
-    def empty_list_factory() -> list:
-        return []
     
     def default_name() -> str:
         return f"test_{datetime.now().strftime('%m%d%Y_%H%M%S')}"
@@ -46,23 +99,20 @@ class Case:
         return "Business Process Owner"
     
     def default_it_owner() -> str:
-        return "Business Process Owner"
+        return "Technical Owner"
     
     def default_log_config() -> LoggingConfig:
        return LoggingConfig()
-   
-    def default_system() -> str:
-        return "1.2 ERP - RQ2"
     
     def default_result() -> ResultCase:
         return ResultCase()
     
     Name: str = field(default_factory=default_name)
-    Description: str = field(default_factory=empty_string)
+    Description: str = field(default_factory=str)
     BusinessProcessOwner: str = field(default_factory=default_business_process_owner)
     ITOwner: str = field(default_factory=default_it_owner)
-    DocumentationLink: str = field(default_factory=empty_string)
-    CasePath: Path = field(default_factory=default_case_path)
+    DocumentationLink: str = field(default_factory=str)
+    CasePath: Path = field(default_factory=get_main_dir)
     LogConfig: LoggingConfig = field(default_factory=default_log_config)
     DateFormat: str = field(default_factory=default_date_format)
     ExplicitWait: float = field(default_factory=default_explicit_wait)
@@ -73,55 +123,15 @@ class Case:
     ExitOnFail: bool = True
     CloseSAPOnCleanup: bool = True
     
-    System: str = field(default_factory=default_system)
-    Steps: list[Step] = field(default_factory=empty_list_factory)
-    Data: dict = None
+    System: str = field(default_factory=str)
+    Steps: list[Step] = field(default_factory=list)
+    Data = None
     Status: ResultCase = field(default_factory=default_result)
     
     SapMajorVersion: Optional[int] = None
     SapMinorVersion: Optional[int] = None
     SapPatchLevel: Optional[int] = None
     SapRevision: Optional[int] = None
-        
-
-# class VKeys(Enum):
-#     ENTER = "ENTER"
-#     F1 = "F1"
-#     F2 = "F2"
-#     F3 = "F3"
-#     F4 = "F4"
-#     F5 = "F5"
-#     F6 = "F6"
-#     F7 = "F7"
-#     F8 = "F8"
-#     F9 = "F9"
-#     F10 = "F10"
-#     F11 = "F11"
-#     F12 = "F12"
-#     SHIFT = "SHIFT"
-#     CTRL = "CTRL"
-#     A = "A"
-#     E = "E"
-#     F = "F"
-#     D = "D"
-#     N = "N"
-#     O = "O"
-#     DEL = "DEL"
-#     INS = "INS"
-#     ALT = "ALT"
-#     BACKSPACE = "BACKSPACE"
-#     PAGEUP = "PAGEUP"
-#     PAGEDOWN = "PAGEDOWN"
-#     G = "G"
-#     R = "R"
-#     P = "P"
-#     B = "B"
-#     K = "K"
-#     T = "T"
-#     Y = "Y"
-#     X = "X"
-#     C = "C"
-#     V = "V"
 
 
 VKEYS = ["ENTER", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",

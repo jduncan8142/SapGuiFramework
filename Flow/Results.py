@@ -1,22 +1,19 @@
-from enum import Enum
+from enum import StrEnum, auto
 from dataclasses import dataclass, field
 
-class Result(Enum):
-    PASS = "PASS"
-    FAIL = "FAIL"
-    WARN = "WARN"
+class Result(StrEnum):
+    PASS = auto()
+    FAIL = auto()
+    WARN = auto()
 
 
 @dataclass
-class ResultCase:
-    def empty_list_factory() -> list:
-        return []
-    
+class ResultCase:    
     Result: Result = None
-    FailedSteps: list = field(default_factory=empty_list_factory)
-    FailedScreenShots: list = field(default_factory=empty_list_factory)
-    PassedSteps: list = field(default_factory=empty_list_factory)
-    PassedScreenShots: list = field(default_factory=empty_list_factory)
+    FailedSteps: list = field(default_factory=list)
+    FailedScreenShots: list = field(default_factory=list)
+    PassedSteps: list = field(default_factory=list)
+    PassedScreenShots: list = field(default_factory=list)
 
 
 @dataclass

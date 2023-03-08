@@ -8,25 +8,13 @@ class Step:
     def default_status() -> ResultStep:
         return ResultStep()
     
-    def default_name() -> str:
-        return ""
+    Action: str
+    ElementId: str = field(default_factory=str)
+    Args: list = field(default_factory=list)
+    Kwargs: dict = field(default_factory=dict)
     
-    def default_description() -> str:
-        return ""
-    
-    def default_args() -> list:
-        return []
-    
-    def default_kwargs() -> dict:
-        return {}
-    
-    Action: str = None
-    ElementId: str = None
-    Args: list = field(default_factory=default_args)
-    Kwargs: dict = field(default_factory=default_kwargs)
-    
-    Name: str = field(default_factory=default_name)
-    Description: str = field(default_factory=default_description)
+    Name: str = field(default_factory=str)
+    Description: str = field(default_factory=str)
     
     ApplicationServer: Optional[str] = None
     Language: Optional[str]= None
@@ -40,6 +28,6 @@ class Step:
     Transaction: Optional[str] = None
     User: Optional[str] = None
     
-    PyCode: Optional[str] = None
+    PyCode: Optional[str] = field(default_factory=str)
     
     Status: ResultStep = field(default_factory=default_status)
