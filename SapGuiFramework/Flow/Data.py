@@ -125,7 +125,7 @@ class Case:
     
     System: str = field(default_factory=str)
     Steps: list[Step] = field(default_factory=list)
-    Data = None
+    Data: Optional[object] = None
     Status: ResultCase = field(default_factory=default_result)
     
     SapMajorVersion: Optional[int] = None
