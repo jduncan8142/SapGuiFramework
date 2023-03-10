@@ -1,6 +1,5 @@
 from typing import Any, Optional
 import win32com.client
-from CRUD.Interface import DB
 from Flow.Data import Case, TextElements, VKEYS, Table
 from Flow.Results import Result
 from Flow.Actions import Step

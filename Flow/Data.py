@@ -1,13 +1,13 @@
 from dataclasses import dataclass, field
-from typing import Optional
-from pathlib import Path
-from Core.Utilities import get_main_dir
+from datetime import datetime
 from enum import Enum
+from pathlib import Path
+from typing import Optional
 import xml.etree.ElementTree as ET
+from Core.Utilities import get_main_dir
 from Flow.Actions import Step
 from Flow.Results import ResultCase
-from CRUD.Models import LoggingConfig
-from datetime import datetime
+from Logging import LoggingConfig
 
 
 @dataclass
