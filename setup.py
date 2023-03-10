@@ -27,5 +27,5 @@ setup(
     package_dir={"Core": ".\SapGuiFramework\Core", "Logging": ".\SapGuiFramework\Logging", "Flow": ".\SapGuiFramework\Flow"},
     python_requires=">=3.11",
     install_requires=["pywin32>=305", "PyYAML>=6.0"], 
-    extras_require={"dev": ["twine>=4.0.2"]}
+    extras_require={"dev": ["pytest>=7.0", "twine>=4.0.2"]}
 )

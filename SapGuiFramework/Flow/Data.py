@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from Core.Utilities import get_main_dir
 from Flow.Actions import Step
 from Flow.Results import ResultCase
-from Logging import LoggingConfig
+from Logging.Logging import LoggingConfig
 
 
 @dataclass
