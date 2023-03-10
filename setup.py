@@ -7,7 +7,7 @@ with open('README.md') as f:
 
 setup(
     name="SapGuiFramework",
-    version="0.0.10",
+    version="0.1.0",
     author="Jason Duncan",
     author_email="jason.matthew.duncan@gmail.com",
     description="A Framework Library for controlling the SAP GUI desktop client",
@@ -20,11 +20,11 @@ setup(
     },
     packages=find_packages(where="SapGuiFramework"),
     classifiers=(
-        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Operating System :: Microsoft :: Windows",
         "License :: OSI Approved :: MIT License",
     ),
-    package_dir={"SapGui": "SapGui", "SapLogger": "SapGui", "SapLogonPad": "SapLogonPad", "Utilities": "Utilities"},
-    python_requires=">=3.10",
-    install_requires=["pywin32>=302", "mss>=6.1.0", "lxml>=4.6.4", "PySimpleGUI>=4.55.1", "xmltodict>=0.12.0", "thefuzz>=0.19.0", "python-Levenshtein>=0.12.2"]
+    package_dir={"Core": "Core", "Logging": "Logging", "Flow": "Flow"},
+    python_requires=">=3.11",
+    install_requires=["pywin32>=302"]
 )
