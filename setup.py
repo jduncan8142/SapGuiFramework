@@ -19,12 +19,13 @@ setup(
         "Documentation": "https://github.com/jduncan8142/SapGuiFramework/wiki"
     },
     packages=find_packages(where="SapGuiFramework"),
-    classifiers=(
+    classifiers=[
         "Programming Language :: Python :: 3.11",
         "Operating System :: Microsoft :: Windows",
         "License :: OSI Approved :: MIT License",
-    ),
-    package_dir={"Core": "Core", "Logging": "Logging", "Flow": "Flow"},
+    ],
+    package_dir={"Core": ".\SapGuiFramework\Core", "Logging": ".\SapGuiFramework\Logging", "Flow": ".\SapGuiFramework\Flow"},
     python_requires=">=3.11",
-    install_requires=["pywin32>=302"]
+    install_requires=["pywin32>=305", "PyYAML>=6.0"], 
+    extras_require={"dev": ["twine>=4.0.2"]}
 )
