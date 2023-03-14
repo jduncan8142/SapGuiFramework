@@ -425,17 +425,22 @@ class Session:
                 __conns = self.sap_app.connections
                 if len(__conns) == 0:
                     self.connection = self.sap_app.OpenConnection(self.connection_name, True)
+                    self.__connection_number = self.connection.Id[-2]
                 else:
                     for conn in __conns:
                         if conn.description == connection_name:
                             self.connection = conn
+                            self.__connection_number = self.connection.Id[-2]
                     if self.connection is None:
                         self.connection = self.sap_app.OpenConnection(self.connection_name, True)
+                        self.__connection_number = self.connection.Id[-2]
                 __sessions = self.connection.sessions
                 if len(__sessions) == 0:
                     self.session = self.connection.children(self.__session_number)
+                    self.__session_number = self.session.Id[-2]
                 else:
                     self.session = __sessions[0]
+                    self.__session_number = self.session.Id[-2]
                 self.collect_session_info()
                 self.step_pass(
                     msg=f"Connection open for {self.connection_name}", 
@@ -469,6 +474,7 @@ class Session:
             if self.session:
                 self.wait_for_element(self.ace_id())
                 self.main_window = self.session.findById(self.ace_id())
+                self.__window_number = self.main_window.Id[-2]
                 self.mbar = self.session.findById(f"{self.ace_id()}/mbar")
                 self.tbar0 = self.session.findById(f"{self.ace_id()}/tbar[0]")
                 self.titl = self.session.findById(f"{self.ace_id()}/titl")
@@ -1254,3 +1260,4 @@ class Session:
         self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLV50C-VBELN", text=sales_order)
         if selection_date is not None:
             self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLV50C-DATBI", text=selection_date)
+        self.enter()
