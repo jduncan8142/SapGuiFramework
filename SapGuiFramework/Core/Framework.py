@@ -1246,4 +1246,11 @@ class Session:
 
     def get_delivery_header_outputs(self, delivery: str) -> list:
         self.display_delivery(delivery=delivery)
-        self.click_element(id="/app/con[0]/ses[0]/wnd[0]/mbar/menu[3]/menu[2]/menu[0]") 
+        self.click_element(id="/app/con[0]/ses[0]/wnd[0]/mbar/menu[3]/menu[2]/menu[0]")
+
+    def fill_vl01n_initial_screen(self, shipping_point: str, sales_order: str, 
+                                  selection_date: Optional[str] = None) -> None:
+        self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLIKP-VSTEL", text=shipping_point)
+        self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLV50C-VBELN", text=sales_order)
+        if selection_date is not None:
+            self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLV50C-DATBI", text=selection_date)
