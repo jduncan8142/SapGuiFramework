@@ -1112,6 +1112,23 @@ class Session:
             self.step_fail(
                 msg=f"Assertion value contains failed, element: {self.current_element.Id} is not present.", 
                 ss_name="assert_element_value_contains_fail")
+    
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def assert_success_status(self) -> None:
+        try:
+            if self.sbar.MessageType == "S":
+                self.step_pass(
+                    msg=f"Status is success", 
+                    ss_name="assert_success_status_pass")
+            else:
+                self.step_fail(
+                    msg=f"Status is {self.sbar.MessageType} -- {self.sbar.Text}", 
+                    ss_name="assert_success_status_fail")
+        except Exception as err:
+            self.handle_unknown_exception(
+                msg=f"Unhandled exception while asserting success status",
+                ss_name="assert_success_status_exception",
+                error=err)
 
     # Screen Parsing & Visualization
     def visualize_element(self, id: str, visualize: Optional[bool] = False) -> None:
