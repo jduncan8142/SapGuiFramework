@@ -14,7 +14,7 @@ import re
 
 
 class Session:
-    __version__ = "0.1.1"
+    __version__ = "0.1.2"
     __explicit_wait__: float = 0.0
     
     def __init__(self) -> None:
