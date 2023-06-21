@@ -24,7 +24,7 @@ setup(
         "Operating System :: Microsoft :: Windows",
         "License :: OSI Approved :: MIT License",
     ],
-    package_dir={"Core": ".\Core", "Logging": ".\Logging", "Flow": ".\Flow"},
+    package_dir={"Core": "Core", "Logging": "Logging", "Flow": "Flow"},
     python_requires=">=3.11",
     install_requires=["pywin32>=305", "PyYAML>=6.0"], 
     extras_require={"dev": ["pytest>=7.0", "twine>=4.0.2"]}
