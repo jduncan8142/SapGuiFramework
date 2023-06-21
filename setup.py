@@ -26,6 +26,6 @@ setup(
     ],
     package_dir={"Core": "SapGuiFramework\Core", "Logging": "SapGuiFramework\Logging", "Flow": "SapGuiFramework\Flow"},
     python_requires=">=3.11",
-    install_requires=["pywin32>=305", "PyYAML>=6.0", "selenium", "python-dotenv", "chromedriver-binary-auto", ]
+    install_requires=["pywin32>=305", "PyYAML>=6.0", "selenium>=4.10.0", "python-dotenv>=1.0.0", "chromedriver-binary-auto>=0.2.6"]
     extras_require={"dev": ["pytest>=7.0", "twine>=4.0.2"]}
 )
