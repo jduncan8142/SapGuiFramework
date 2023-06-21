@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 from typing import Any, Optional
 import win32com.client
 from Flow.Data import Case, TextElements, VKEYS, Table
@@ -11,6 +12,14 @@ import atexit
 import base64
 import datetime
 import re
+import json
+import os
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+import chromedriver_binary
 
 
 class Session:
@@ -18,7 +27,11 @@ class Session:
     __explicit_wait__: float = 0.0
     
     def __init__(self) -> None:
+        load_dotenv()
         self.case: Case = Case()
+        self.web_driver: webdriver = None
+        self.web_element = None
+        self.html_wait: float = os.getenv("HTML_WAIT") if os.getenv("HTML_WAIT") is not None else 3.0
         self.logger: Logger = None
         if self.case.LogConfig is None:
             self.logger = Logger(config=DB().db["LoggingConfig"])
@@ -56,8 +69,7 @@ class Session:
                 Description="Creates and return a new SAP session object.")
     
     # Screenshot Actions
-    def hard_copy(self, filename: str, image_type: Optional[str] = "PNG", 
-                  pos: Optional[tuple[int, int, int, int]] = None) -> bytes:
+    def hard_copy(self, filename: str, image_type: Optional[str] = "PNG", pos: Optional[tuple[int, int, int, int]] = None) -> bytes:
         try:
             if pos is not None:
                 img = self.main_window.HardCopy(
@@ -229,11 +241,9 @@ class Session:
         elif id.startswith("/usr"):
             return f"{base_id}{id}"
         elif id.startswith("wnd"):
-            return f"/app/con[{self.__connection_number}]/ses\
-                [{self.__session_number}]/{id}"
+            return f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/{id}"
         elif id.startswith("/wnd"):
-            return f"/app/con[{self.__connection_number}]/ses\
-                [{self.__session_number}]{id}"
+            return f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]{id}"
         elif id.startswith("ses"):
             return f"/app/con[{self.__connection_number}]/{id}"
         elif id.startswith("/ses"):
@@ -408,6 +418,24 @@ class Session:
         except Exception as err:
             self.logger.log.warning(msg=f"Unhandled exception while collecting case metadata|{err}")
     
+    def load_case_from_json_file(self, data_file: str) -> None:
+        __data: dict = json.load(open(data_file, "rb"))
+        self.case.Name = __data.get("case_name", f"test_{datetime.datetime.now().strftime('%m%d%Y_%H%M%S')}")
+        self.case.Description = __data.get("description", "")
+        self.case.BusinessProcessOwner = __data.get("business_owner", "Business Process Owner")
+        self.case.ITOwner = __data.get("it_owner", "Technical Owner")
+        self.case.DocumentationLink = __data.get("doc_link", "")
+        self.case.CasePath = __data.get("case_path", "")
+        self.case.DateFormat = __data.get("date_format", "%m/%d/%Y")
+        self.case.ExplicitWait = __data.get("explicit_wait", 0.25)
+        self.case.ScreenShotOnPass = __data.get("screenshot_on_pass", False)
+        self.case.ScreenShotOnFail = __data.get("screenshot_on_fail", False)
+        self.case.FailOnError = __data.get('fail_on_error', True)
+        self.case.ExitOnFail = __data.get("exit_on_fail", True)
+        self.case.CloseSAPOnCleanup = __data.get("close_sap_on_cleanup", True)
+        self.case.System = __data.get("system", "")
+        self.case.Data = __data
+    
     # Connection Actions
     def open_connection(self, connection_name: str) -> None:
         self.new_step(action="open_connection", connection_name=connection_name)
@@ -434,7 +462,7 @@ class Session:
                     if self.connection is None:
                         self.connection = self.sap_app.OpenConnection(self.connection_name, True)
                         self.__connection_number = self.connection.Id[-2]
-                __sessions = self.connection.sessions
+                __sessaions = self.connection.sessions
                 if len(__sessions) == 0:
                     self.session = self.connection.children(self.__session_number)
                     self.__session_number = self.session.Id[-2]
@@ -1190,6 +1218,48 @@ class Session:
                     my_table.Data.append(cells)
                 return my_table
     
+    # Get Table Data
+    def get_table_data(self, statement: str) -> Table:
+        fields, max_rows, table, conditions = self.select_parse(statement)
+        self.start_transaction(transaction="SE16")
+        
+        # Set table
+        self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtDATABROWSE-TABLENAME", text=table)
+        self.enter()
+        
+        # Set conditions
+        self.click_element(id="/app/con[0]/ses[0]/wnd[0]/mbar/menu[3]/menu[2]")
+        self.click_element(id="/app/con[0]/ses[0]/wnd[1]/tbar[0]/btn[14]")  # Unselect All
+        for condition in conditions:
+            self.click_element(id="/app/con[0]/ses[0]/wnd[1]/tbar[0]/btn[71]")  # Search
+            self.set_text(id="/app/con[0]/ses[0]/wnd[2]/usr/txtRSYSF-STRING", text=condition[0])
+            self.set_checkbox(id="/app/con[0]/ses[0]/wnd[2]/usr/chkSCAN_STRING-START", state=False)
+            self.click_element(id="/app/con[0]/ses[0]/wnd[2]/tbar[0]/btn[0]")
+            self.session.FindById("/app/con[0]/ses[0]/wnd[3]/usr/lbl[3,2]").SetFocus()
+            self.click_element(id="/app/con[0]/ses[0]/wnd[3]/tbar[0]/btn[2]")
+            self.set_checkbox(id="/app/con[0]/ses[0]/wnd[1]/usr/chk[2,6]", state=True)
+            self.click_element(id="/app/con[0]/ses[0]/wnd[1]/usr/chk[2,6]")
+            self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtI1-LOW", text=condition[2])
+            self.f2()
+            gv = self.session.FindById("/app/con[0]/ses[0]/wnd[1]/usr/cntlOPTION_CONTAINER/shellcont/shell")
+            # Set selection option
+        
+        # Set max rows to return
+        self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/txtMAX_SEL", text=max_rows)
+        
+        # Set fields
+        self.click_element(id="/app/con[0]/ses[0]/wnd[0]/mbar/menu[3]/menu[0]/menu[1]")
+        self.click_element(id="/app/con[0]/ses[0]/wnd[1]/tbar[0]/btn[14]")
+        for field in fields:
+            self.click_element(id="/app/con[0]/ses[0]/wnd[1]/tbar[0]/btn[71]")
+            self.set_text(id="/app/con[0]/ses[0]/wnd[2]/usr/txtRSYSF-STRING", text="HERKL")
+            self.set_checkbox(id="/app/con[0]/ses[0]/wnd[2]/usr/chkSCAN_STRING-START", state=False)
+            self.click_element(id="/app/con[0]/ses[0]/wnd[2]/tbar[0]/btn[0]")
+            self.session.FindById("/app/con[0]/ses[0]/wnd[3]/usr/lbl[3,2]").SetFocus()
+            self.click_element(id="/app/con[0]/ses[0]/wnd[3]/tbar[0]/btn[2]")
+            self.set_checkbox(id="/app/con[0]/ses[0]/wnd[1]/usr/chk[1,3]", state=True)
+            self.click_element(id="/app/con[0]/ses[0]/wnd[1]/tbar[0]/btn[6]")
+    
     ## Sales Orders
     def availability_control(self) -> None:
         if self.is_element("usr/btnBUT3"):
@@ -1254,10 +1324,48 @@ class Session:
         self.display_delivery(delivery=delivery)
         self.click_element(id="/app/con[0]/ses[0]/wnd[0]/mbar/menu[3]/menu[2]/menu[0]")
 
-    def fill_vl01n_initial_screen(self, shipping_point: str, sales_order: str, 
-                                  selection_date: Optional[str] = None) -> None:
+    def fill_vl01n_initial_screen(self, shipping_point: str, sales_order: str, selection_date: Optional[str] = None) -> None:
         self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLIKP-VSTEL", text=shipping_point)
         self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLV50C-VBELN", text=sales_order)
         if selection_date is not None:
             self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLV50C-DATBI", text=selection_date)
         self.enter()
+    
+    def create_web_session(self, headless: bool = False, insecure_certs: bool = True) -> None:
+        # Setup for processing via HTML
+        options = webdriver.ChromeOptions()
+        options.page_load_strategy = "normal"
+        options.acceptInsecureCerts = insecure_certs
+        if headless:
+            options.add_argument("--headless")
+        options.add_argument("--log-level=3")
+        self.web_driver = webdriver.Chrome(options=options)
+        self.web_main_window_handle = self.web_driver.current_window_handle
+        self.web_driver.maximize_window()
+    
+    def find_by_xpath(self, xpath: str, return_element: bool = False, wait_time: Optional[float] = None) -> Any:
+        __wait_time = wait_time if wait_time is not None else self.html_wait
+        self.web_element = WebDriverWait(self.web_driver, __wait_time).until(lambda x: x.find_element(by=By.XPATH, value=xpath))
+        if return_element:
+            return self.web_element
+    
+    def get_web_element_text(self, xpath: str, wait_time: Optional[float] = None) -> str:
+        try:
+            self.find_by_xpath(xpath=xpath, wait_time=wait_time)
+            return self.web_element.text
+        except:
+            self.documentation(f"Unable to get text from web element: {xpath}")
+            return None
+    
+    def click_web_element(self, xpath: str, wait_time: Optional[float] = None) -> None:
+        self.find_by_xpath(xpath=xpath, wait_time=wait_time)
+        self.web_driver.execute_script("arguments[0].click();", self.web_element)
+    
+    def wait_for_web_element(self, xpath: str, timeout: Optional[float] = 5.0, delay_time: Optional[float] = 1.0, wait_time: Optional[float] = None) -> None:
+        t = Timer()
+        self.find_by_xpath(xpath=xpath, wait_time=wait_time)
+        while self.web_element.is_displayed() and t.elapsed() <= timeout:
+            self.wait(delay_time)
+    
+    def web_driver_close(self) -> None:
+        self.web_driver.close()

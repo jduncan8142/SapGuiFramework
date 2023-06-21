@@ -90,6 +90,35 @@ def explicit_wait_after(_func = None, *, wait_time: float = 0.0):
         return decorator_explicit_wait_after(_func)
 
 
+def parse_sql_select(statement: str) -> list:
+    statement = " ".join([x.strip('\t') for x in statement.strip("\n\r").upper().split(';')])   
+    statement = statement + ' WHERE ' if 'WHERE' not in statement else statement
+
+    regex = re.compile("SELECT(.*)FROM(.*)WHERE(.*)")
+
+    parts = regex.findall(statement)
+    parts = parts[0]
+    select = [x.strip() for x in parts[0].split(',')]
+    top = select[0].split(" ")
+    if len(top) == 3:
+        if "TOP" in top:
+            select[0] = top[2]
+            top = top[0:2]
+        else:
+            top = []
+    else:
+        top = []
+    frm = parts[1].strip()
+    where = parts[2].strip()
+
+    # splits by spaces but ignores quoted string with ''
+    PATTERN = re.compile(r"""((?:[^ '"]|'[^']*'|"[^"]*")+)""")
+    where = PATTERN.split(where)[1::2]
+
+    cleaned = [select, top, frm, where]
+    return cleaned
+
+
 class Timer:
     """
     A basic timer to use when waiting for element to be displayed. 

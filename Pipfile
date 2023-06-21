@@ -5,8 +5,13 @@ name = "pypi"
 
 [packages]
 python-certifi-win32 = "*"
+selenium = "*"
+chromedriver-binary-auto = "*"
+python-dotenv = "*"
+edgedriver-autoinstaller = "*"
 
 [dev-packages]
+ipykernel = "*"
 
 [requires]
 python_version = "3.11"
