@@ -462,7 +462,7 @@ class Session:
                     if self.connection is None:
                         self.connection = self.sap_app.OpenConnection(self.connection_name, True)
                         self.__connection_number = self.connection.Id[-2]
-                __sessaions = self.connection.sessions
+                __sessions = self.connection.sessions
                 if len(__sessions) == 0:
                     self.session = self.connection.children(self.__session_number)
                     self.__session_number = self.session.Id[-2]
