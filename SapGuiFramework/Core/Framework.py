@@ -23,7 +23,7 @@ import chromedriver_binary
 
 
 class Session:
-    __version__ = "0.1.2"
+    __version__ = "0.1.3"
     __explicit_wait__: float = 0.0
     
     def __init__(self) -> None:
