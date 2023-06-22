@@ -1418,7 +1418,11 @@ class Session:
     
     def web_find_by_xpath(self, xpath: str, return_element: bool = False, wait_time: Optional[float] = None) -> Any:
         __wait_time = wait_time if wait_time is not None else self.web_wait
-        self.web_element = WebDriverWait(self.web_driver, __wait_time).until(lambda x: x.find_element(by=By.XPATH, value=xpath))
+        self.web_element = None
+        try:
+            self.web_element = WebDriverWait(self.web_driver, __wait_time).until(lambda x: x.find_element(by=By.XPATH, value=xpath))
+        except Exception as e:
+            self.documentation(f"UNHANDLED ERROR: {e}")
         if return_element:
             return self.web_element
     
