@@ -31,7 +31,8 @@ class Session:
         self.case: Case = Case()
         self.web_driver: webdriver = None
         self.web_element = None
-        self.html_wait: float = os.getenv("HTML_WAIT") if os.getenv("HTML_WAIT") is not None else 3.0
+        self.web_iframe = None
+        self.web_wait: float = os.getenv("HTML_WAIT") if os.getenv("HTML_WAIT") is not None else 3.0
         self.logger: Logger = None
         if self.case.LogConfig is None:
             self.logger = Logger(config=DB().db["LoggingConfig"])
@@ -1401,7 +1402,9 @@ class Session:
         self.click_element('/app/con[0]/ses[0]/wnd[0]/tbar[1]/btn[8]')
     
     ## Selenium Web based functions
-    def create_web_session(self, headless: bool = False, insecure_certs: bool = True) -> None:
+    web_keys = Keys
+    
+    def web_session(self, headless: bool = False, insecure_certs: bool = True) -> None:
         # Setup for processing via HTML
         options = webdriver.ChromeOptions()
         options.page_load_strategy = "normal"
@@ -1413,29 +1416,63 @@ class Session:
         self.web_main_window_handle = self.web_driver.current_window_handle
         self.web_driver.maximize_window()
     
-    def find_by_xpath(self, xpath: str, return_element: bool = False, wait_time: Optional[float] = None) -> Any:
-        __wait_time = wait_time if wait_time is not None else self.html_wait
+    def web_find_by_xpath(self, xpath: str, return_element: bool = False, wait_time: Optional[float] = None) -> Any:
+        __wait_time = wait_time if wait_time is not None else self.web_wait
         self.web_element = WebDriverWait(self.web_driver, __wait_time).until(lambda x: x.find_element(by=By.XPATH, value=xpath))
         if return_element:
             return self.web_element
     
-    def get_web_element_text(self, xpath: str, wait_time: Optional[float] = None) -> str:
+    def web_get_value(self, xpath: str, wait_time: Optional[float] = None) -> str:
+        __text = None
         try:
-            self.find_by_xpath(xpath=xpath, wait_time=wait_time)
-            return self.web_element.text
+            self.web_find_by_xpath(xpath=xpath, wait_time=wait_time)
+            try:
+                __text = self.web_element.text
+            except:
+                __text = self.web_element.get_attribute('value')
         except:
             self.documentation(f"Unable to get text from web element: {xpath}")
-            return None
+        return __text
     
-    def click_web_element(self, xpath: str, wait_time: Optional[float] = None) -> None:
-        self.find_by_xpath(xpath=xpath, wait_time=wait_time)
+    def web_click_element(self, xpath: str, wait_time: Optional[float] = None) -> None:
+        self.web_find_by_xpath(xpath=xpath, wait_time=wait_time)
         self.web_driver.execute_script("arguments[0].click();", self.web_element)
     
-    def wait_for_web_element(self, xpath: str, timeout: Optional[float] = 5.0, delay_time: Optional[float] = 1.0, wait_time: Optional[float] = None) -> None:
+    def web_wait_for_element(self, xpath: str, timeout: Optional[float] = 5.0, delay_time: Optional[float] = 1.0, wait_time: Optional[float] = None) -> None:
         t = Timer()
-        self.find_by_xpath(xpath=xpath, wait_time=wait_time)
+        self.web_find_by_xpath(xpath=xpath, wait_time=wait_time)
         while self.web_element.is_displayed() and t.elapsed() <= timeout:
             self.wait(delay_time)
     
-    def web_driver_close(self) -> None:
+    def web_set_text(self, xpath: str, text: str) -> None:
+        self.web_find_by_xpath(xpath=xpath)
+        self.web_element.clear()
+        self.web_element.send_keys(text)
+    
+    def web_set_iframe_active(self, xpath: str) -> None:
+        self.iframe = None
+        self.iframe = self.web_find_by_xpath(xpath=xpath, return_element=True)
+        if self.iframe is not None:
+            try:
+                self.web_driver.switch_to.frame(self.iframe)
+            except:
+                # Switch back to parent frame in case of error during child frame action
+                self.web_driver.switch_to.parent_frame()
+    
+    def web_set_iframe_inactive(self) -> None:
+        self.web_driver.switch_to.parent_frame()
+        self.web_iframe = None
+    
+    def web_set_zoom(self, zoom: int|float) -> None:
+        self.web_driver.execute_script(f"document.body.style.zoom='{zoom}%'")
+    
+    def web_open_url(self, url: str) -> None:
+        self.web_driver.get(url)
+    
+    def web_enter(self, xpath: Optional[str] = None) -> None:
+        if xpath is not None:
+            self.web_find_by_xpath(xpath=xpath)
+        self.web_element.send_keys(Keys.ENTER)
+    
+    def web_exit(self) -> None:
         self.web_driver.close()
