@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 from typing import Any, Optional
 import win32com.client
-from Flow.Data import Case, TextElements, VKEYS, Table
+from Flow.Data import Case, TextElements, VKEYS, Table, BrowserType
 from Flow.Results import Result
 from Flow.Actions import Step
 from Logging.Logging import Logger, LoggingConfig
@@ -1301,7 +1301,7 @@ class Session:
         for item in line_items:
             # self.click_element(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/subSUBSCREEN_BUTTONS:SAPMV45A:4050/btnBT_POAN")
             self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtRV45A-MABNR[1,0]", text=item.get('material'))
-            self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/txtRV45A-KWMENG[2,0]", text=item.get('target_quantity'))
+            self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/txtRV45A-KWMENG[2,0]", text=item.get('qty'))
             self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-VRKME[3,0]", text=item.get('uom'))
             if "customer_material" in item.keys():
                 self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-KDMAT[12,0]", text=item.get('customer_material'))
@@ -1327,87 +1327,26 @@ class Session:
             self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLV50C-DATBI", text=selection_date)
         self.enter()
     
-    ## EWM functions
-    def get_empty_pick_hus(self) -> list:
-        empty_pick_containers: list = []
-        try:
-            self.start_transaction(transaction="/SCWM/MON")
-            self.session.FindById("wnd[0]/tbar[1]/btn[18]").press()
-            self.session.FindById("wnd[0]/usr/shell/shellcont[0]/shell").expandNode("C000000011")
-            self.session.FindById("wnd[0]/usr/shell/shellcont[0]/shell").selectedNode = "N000000039"
-            self.session.FindById("wnd[0]/usr/shell/shellcont[0]/shell").topNode = "C000000001"
-            self.session.FindById("wnd[0]/usr/shell/shellcont[0]/shell").doubleClickNode("N000000039")
-            self.session.FindById("wnd[1]/usr/chkP_EMPTY").selected = -1
-            self.session.FindById("wnd[1]/usr/ctxtS_HUTYP-LOW").text = "HUA2"
-            self.session.FindById("wnd[1]/usr/ctxtS_PMTYP-LOW").text = "ZAKL"
-            self.session.FindById("wnd[1]/usr/chkP_EMPTY").setFocus()
-            self.session.FindById("wnd[1]/tbar[0]/btn[8]").press()
-            self.session.FindById("wnd[0]/usr/shell/shellcont[1]/shell/shellcont[0]/shell").setCurrentCell(-1, "LGPLA")
-            self.session.FindById("wnd[0]/usr/shell/shellcont[1]/shell/shellcont[0]/shell").selectColumn("LGPLA")
-            self.session.FindById("wnd[0]/usr/shell/shellcont[1]/shell/shellcont[0]/shell").pressToolbarButton("&MB_FILTER")
-            self.session.FindById("wnd[1]/usr/ssub%_SUBSCREEN_FREESEL:SAPLSSEL:1105/ctxt%%DYN001-LOW").text = "EMPTIES"
-            self.session.FindById("wnd[1]/usr/ssub%_SUBSCREEN_FREESEL:SAPLSSEL:1105/ctxt%%DYN001-LOW").caretPosition = 7
-            self.session.FindById("wnd[1]/tbar[0]/btn[0]").press()
-            self.session.FindById("wnd[0]/usr/shell/shellcont[1]/shell/shellcont[0]/shell").pressToolbarContextButton("&MB_VARIANT")
-            self.session.FindById("wnd[0]/usr/shell/shellcont[1]/shell/shellcont[0]/shell").selectContextMenuItem("&LOAD")
-            self.session.FindById("wnd[1]/usr/ssubD0500_SUBSCREEN:SAPLSLVC_DIALOG:0501/cntlG51_CONTAINER/shellcont/shell").selectedRows = "0"
-            self.session.FindById("wnd[1]/usr/ssubD0500_SUBSCREEN:SAPLSLVC_DIALOG:0501/cntlG51_CONTAINER/shellcont/shell").clickCurrentCell()
-            self.session.FindById("wnd[0]/usr/shell/shellcont[1]/shell/shellcont[0]/shell").pressToolbarContextButton("&MB_EXPORT")
-            self.session.FindById("wnd[0]/usr/shell/shellcont[1]/shell/shellcont[0]/shell").selectContextMenuItem("&PC")
-            self.session.FindById("wnd[1]/tbar[0]/btn[0]").press()
-            self.session.FindById("wnd[1]/usr/ctxtDY_FILENAME").text = "empty_pick_hu.txt"
-            self.session.FindById("wnd[1]/usr/ctxtDY_FILENAME").caretPosition = 17
-            self.session.FindById("wnd[1]/tbar[0]/btn[11]").press()
-        except Exception as e:
-            self.documentation(f"UNHANDLED ERROR: {e}")
-        try:
-            with open(Path(os.getenv("SAP_GUI_PATH"), "empty_pick_hu.txt"), 'r') as f: # type: ignore
-                eph_data = f.readlines()
-                empty_pick_containers = [j for j in [i.strip("\n\r\t|- ") for i in eph_data[6:]] if j != '']
-        except Exception as e:
-            self.documentation(f"Unable to read temp file: {Path(os.getenv('SAP_GUI_PATH'), 'empty_pick_hu.txt')} | {e}")
-        return empty_pick_containers
-    
-    def run_ewm_whs_task_creation(self, obd: str, whs: str) -> None:
-        # Run background job steps
-        try:
-            self.start_transaction("ZEWMDISPDLV")
-            self.set_text('/app/con[0]/ses[0]/wnd[0]/usr/ctxtP_LGNUM', whs)
-            self.set_text('/app/con[0]/ses[0]/wnd[0]/usr/txtS_DOCNO-LOW', obd)
-            self.set_text('/app/con[0]/ses[0]/wnd[0]/usr/ctxtS_DOCTY-LOW', "Z*")
-            self.click_element('/app/con[0]/ses[0]/wnd[0]/tbar[1]/btn[8]')
-        except Exception as e:
-            self.documentation(f"UNHANDLED ERROR")
-
-        self.start_transaction("ZEWMGI_RMV_STEP1")
-        self.set_text('/app/con[0]/ses[0]/wnd[0]/usr/ctxtPA_LGNUM', whs)
-        self.set_text('/app/con[0]/ses[0]/wnd[0]/usr/txtSO_DOCNO-LOW', obd)
-        self.set_text('/app/con[0]/ses[0]/wnd[0]/usr/ctxtSO_DOCTY-LOW', "Z*")
-        self.click_element('/app/con[0]/ses[0]/wnd[0]/tbar[1]/btn[8]')
-
-        self.start_transaction("ZEWMGI_RMV_STEP2")
-        self.set_text('/app/con[0]/ses[0]/wnd[0]/usr/ctxtPA_LGNUM', whs)
-        self.set_text('/app/con[0]/ses[0]/wnd[0]/usr/txtSO_DOCNO-LOW', obd)
-        self.set_text('/app/con[0]/ses[0]/wnd[0]/usr/ctxtSO_DOCTY-LOW', "Z*")
-        self.click_element('/app/con[0]/ses[0]/wnd[0]/tbar[1]/btn[8]')
-
-        self.start_transaction("ZEWMGI_RMV_STEP3")
-        self.set_text('/app/con[0]/ses[0]/wnd[0]/usr/ctxtPA_LGNUM', whs)
-        self.set_text('/app/con[0]/ses[0]/wnd[0]/usr/txtSO_DOCNO-LOW', obd)
-        self.click_element('/app/con[0]/ses[0]/wnd[0]/tbar[1]/btn[8]')
-    
     ## Selenium Web based functions
     web_keys = Keys
     
-    def web_session(self, headless: bool = False, insecure_certs: bool = True) -> None:
-        # Setup for processing via HTML
-        options = webdriver.ChromeOptions()
-        options.page_load_strategy = "normal"
-        options.acceptInsecureCerts = insecure_certs
-        if headless:
-            options.add_argument("--headless")
-        options.add_argument("--log-level=3")
-        self.web_driver = webdriver.Chrome(options=options)
+    def web_session(
+        self,
+        browser: Optional[BrowserType] = BrowserType.CHROME, 
+        headless: Optional[bool] = False, 
+        insecure_certs: Optional[bool] = True, 
+        log_level: Optional[int] = 3,
+        load_strategy: Optional[str] = "normal"
+        ) -> None:
+        options = None
+        if browser == BrowserType.CHROME:
+            options = webdriver.ChromeOptions()
+            options.page_load_strategy = load_strategy
+            options.acceptInsecureCerts = insecure_certs
+            if headless:
+                options.add_argument("--headless")
+            options.add_argument(f"--log-level={log_level}")
+            self.web_driver = webdriver.Chrome(options=options)
         self.web_main_window_handle = self.web_driver.current_window_handle
         self.web_driver.maximize_window()
     

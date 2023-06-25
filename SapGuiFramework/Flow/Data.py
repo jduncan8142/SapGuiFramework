@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import Enum, auto
 from pathlib import Path
 from typing import Optional
 import xml.etree.ElementTree as ET
@@ -169,6 +169,12 @@ class TextElements(Enum):
     GuiTab = "GuiTab"
     GuiShell = "GuiShell"
     GuiStatusPane = "GuiStatusPane"
+
+
+class BrowserType(Enum):
+    CHROME = auto()
+    EDGE = auto()
+    FIREFOX = auto()
 
 
 @dataclass
