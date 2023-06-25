@@ -102,7 +102,7 @@ class Case:
         return "Technical Owner"
     
     def default_log_config() -> LoggingConfig:
-       return LoggingConfig()
+        return LoggingConfig()
     
     def default_result() -> ResultCase:
         return ResultCase()

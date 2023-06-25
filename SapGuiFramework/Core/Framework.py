@@ -140,6 +140,9 @@ class Session:
         return shot_bytes
     
     # Helpers
+    def get_env(self, var: str) -> Any:
+        return os.getenv(var)
+    
     def is_element(self, element: str) -> bool:
         try:
             __element = self.ace_id(element)
@@ -303,11 +306,7 @@ class Session:
             )
     
     @explicit_wait_before(wait_time=__explicit_wait__)
-    def handle_unknown_exception(
-        self, 
-        msg: Optional[str] = None, 
-        ss_name: Optional[str] = None, 
-        error: Optional[str] = None) -> None:
+    def handle_unknown_exception(self, msg: Optional[str] = None, ss_name: Optional[str] = None, error: Optional[str] = None) -> None:
         if self.case.FailOnError:
             self.step_fail(msg=msg, ss_name=ss_name, error=error)
         else:
@@ -419,7 +418,7 @@ class Session:
         except Exception as err:
             self.logger.log.warning(msg=f"Unhandled exception while collecting case metadata|{err}")
     
-    def load_case_from_json_file(self, data_file: str) -> None:
+    def load_case_from_json_file(self, data_file: str) -> dict:
         __data: dict = json.load(open(data_file, "rb"))
         self.case.Name = __data.get("case_name", f"test_{datetime.datetime.now().strftime('%m%d%Y_%H%M%S')}")
         self.case.Description = __data.get("description", "")
@@ -436,6 +435,7 @@ class Session:
         self.case.CloseSAPOnCleanup = __data.get("close_sap_on_cleanup", True)
         self.case.System = __data.get("system", "")
         self.case.Data = __data
+        return self.case.Data
     
     # Connection Actions
     def open_connection(self, connection_name: str) -> None:
@@ -1276,10 +1276,7 @@ class Session:
                     ss_name="availability_control_exception", 
                     error=err)
     
-    def fill_va01_initial_screen(self, order_type: str, sales_org: str, 
-                                 dist_ch: str, division: str, 
-                                 sales_office: Optional[str] = "", 
-                                 sales_group: Optional[str] = "") -> None:
+    def fill_va01_initial_screen(self, order_type: str, sales_org: str, dist_ch: str, division: str, sales_office: Optional[str] = "", sales_group: Optional[str] = "") -> None:
         self.set_text(id="usr/ctxtVBAK-AUART", text=order_type)
         self.set_text(id="usr/ctxtVBAK-VKORG", text=sales_org)
         self.set_text(id="usr/ctxtVBAK-VTWEG", text=dist_ch)
@@ -1288,9 +1285,7 @@ class Session:
         self.set_text(id="usr/ctxtVBAK-VKGRP", text=sales_group)
         self.enter()
 
-    def fill_va01_header(self, sold_to: str, ship_to: str, 
-                         customer_reference: Optional[str] = None, 
-                         customer_reference_date: Optional[str] = None) -> None:
+    def fill_va01_header(self, sold_to: str, ship_to: str, customer_reference: Optional[str] = None, customer_reference_date: Optional[str] = None) -> None:
         self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUAGV-KUNNR", text=sold_to)
         self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUWEV-KUNNR", text=ship_to)
         if customer_reference is not None:
