@@ -15,6 +15,7 @@ import re
 import json
 import os
 from selenium import webdriver
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
@@ -27,40 +28,52 @@ class Session:
     __explicit_wait__: float = 0.0
     
     def __init__(self) -> None:
+        """
+        1. Load any available .env file
+        2. Create Case instance 
+        3. Create Logger instance
+        4. Set global __explicit_wait__ variable 
+        5. Create Session variables and set defaults
+        6. Register Session.cleanup function so it is called on exit
+        """
         load_dotenv()
-        self.case: Case = Case()
-        self.web_driver: webdriver = None
-        self.web_element = None
-        self.web_iframe = None
-        self.web_wait: float = os.getenv("HTML_WAIT") if os.getenv("HTML_WAIT") is not None else 3.0
-        self.logger: Logger = None
+        self.case: Case|None = None
+        self.logger: Logger|None = None
         if self.case.LogConfig is None:
-            self.logger = Logger(config=DB().db["LoggingConfig"])
+            self.logger = Logger(config=LoggingConfig())
         else:
             self.logger = Logger(config=self.case.LogConfig)
         Session.__explicit_wait__ = self.case.ExplicitWait
+        self.web_driver: webdriver|None = None
+        self.web_element: WebElement|None = None
+        self.web_iframe: WebElement|None = None
+        self.web_wait: float = os.getenv("HTML_WAIT") if os.getenv("HTML_WAIT") is not None else 3.0
         self.__connection_number: int = 0
         self.__session_number: int = 0
         self.__window_number: int = 0
-        self.connection_name: str = None
-        self.sap_gui: win32com.client.CDispatch = None
-        self.sap_app: win32com.client.CDispatch = None
-        self.connection: win32com.client.CDispatch = None
-        self.session: win32com.client.CDispatch = None
-        self.session_info: win32com.client.CDispatch = None
-        self.main_window: win32com.client.CDispatch = None
-        self.mbar: win32com.client.CDispatch = None
-        self.tbar0: win32com.client.CDispatch = None
-        self.titl: win32com.client.CDispatch = None
-        self.tbar1: win32com.client.CDispatch = None
-        self.usr: win32com.client.CDispatch = None
-        self.sbar: win32com.client.CDispatch = None
-        self.current_element: win32com.client.CDispatch = None
-        self.current_transaction: str = None
-        self.current_step: Step = None
+        self.connection_name: str|None = None
+        self.sap_gui: win32com.client.CDispatch|None = None
+        self.sap_app: win32com.client.CDispatch|None = None
+        self.connection: win32com.client.CDispatch|None = None
+        self.session: win32com.client.CDispatch|None = None
+        self.session_info: win32com.client.CDispatch|None = None
+        self.main_window: win32com.client.CDispatch|None = None
+        self.mbar: win32com.client.CDispatch|None = None
+        self.tbar0: win32com.client.CDispatch|None = None
+        self.titl: win32com.client.CDispatch|None = None
+        self.tbar1: win32com.client.CDispatch|None = None
+        self.usr: win32com.client.CDispatch|None = None
+        self.sbar: win32com.client.CDispatch|None = None
+        self.current_element: win32com.client.CDispatch|None = None
+        self.current_transaction: str|None = None
+        self.current_step: Step|None = None
         atexit.register(self.cleanup)
     
     def __post_init__(self) -> None:
+        """
+        Post init function of Session class. 
+        If user did not pass in a class<Step> object for Session.current_step, create a new initial step object with default values.
+        """
         if self.current_step is None:
             self.current_step = Step(
                 Action="Create Session", 
@@ -70,7 +83,21 @@ class Session:
                 Description="Creates and return a new SAP session object.")
     
     # Screenshot Actions
-    def hard_copy(self, filename: str, image_type: Optional[str] = "PNG", pos: Optional[tuple[int, int, int, int]] = None) -> bytes:
+    def hard_copy(self, filename: str, image_type: Optional[str] = "PNG", pos: Optional[tuple[int, int, int, int]] = None) -> bytes|None:
+        """
+        Capture SAP GUI screenshot
+
+        Arguments:
+            filename {str} -- Filename used to save file from main_window.HandCopy function of SAP GUI
+
+        Keyword Arguments:
+            image_type {Optional[str]} -- Type of image file (default: {"PNG"})
+            pos {Optional[tuple[int, int, int, int]]} -- Optional tuple of (left, top, width, height) (default: {None})
+
+        Returns:
+            bytes|None -- Returns the bytes of the screenshot or None
+        """
+        shot_bytes: bytes|None = None
         try:
             if pos is not None:
                 img = self.main_window.HardCopy(
@@ -83,46 +110,73 @@ class Session:
             else:
                 img = self.main_window.HardCopy(filename, image_type)
                 with open(img, "rb") as f_img:
-                    return base64.b64encode(f_img.read())
+                    shot_bytes = base64.b64encode(f_img.read())
         except Exception as err:
             self.handle_unknown_exception(
                 msg="Unhandled exception during hard_copy", 
                 ss_name="hard_copy_exception", 
                 error=err)
+        return shot_bytes
 
     @explicit_wait_before(wait_time=__explicit_wait__)
-    def capture_fullscreen(self, screenshot_name: str) -> bytes:
-        shot_bytes: bytes = None
+    def capture_fullscreen(self, screenshot_name: str) -> bytes|None:
+        """
+        Captures a screenshot of the SAP GUI main window as bytes.
+        Bytes can then be saved to a file or base64 encoded and added to the log.
+
+        Arguments:
+            screenshot_name {str} -- Name of screenshot
+
+        Returns:
+            bytes|None -- Returns the bytes of the screenshot or None
+        """
+        shot_bytes: bytes|None = None
         try:
             shot_bytes = self.hard_copy(screenshot_name, "PNG")
         except Exception as err:
             self.handle_unknown_exception(
                 msg="Unhandled exception during screen capture", 
-                ss_name="take_screenshot_exception", 
+                ss_name="capture_fullscreen_exception", 
                 error=err)
         return shot_bytes
     
     @explicit_wait_before(wait_time=__explicit_wait__)
-    def capture_region(
-        self, 
-        screenshot_name: str, 
-        pos: tuple[int, int, int, int]) -> bytes:
-        shot_bytes: bytes = None
+    def capture_region(self, screenshot_name: str, pos: tuple[int, int, int, int]) -> bytes|None:
+        """
+        Captures a screenshot of a provide SAP GUI window region as bytes.
+        Bytes can then be saved to a file or base64 encoded and added to the log.
+
+        Arguments:
+            screenshot_name {str} -- Name of screenshot
+            pos {tuple[int, int, int, int]} -- SAP GUI window region to capture
+
+        Returns:
+            bytes|None -- Returns the bytes of the screenshot or None
+        """
+        shot_bytes: bytes|None = None
         try:
             shot_bytes = self.hard_copy(screenshot_name, "PNG", pos)
         except Exception as err:
             self.handle_unknown_exception(
-                msg="Unhandled exception during screen capture", 
-                ss_name="take_screenshot_exception", 
+                msg="Unhandled exception during region capture", 
+                ss_name="capture_region_exception", 
                 error=err)
         return shot_bytes
     
     @explicit_wait_before(wait_time=__explicit_wait__)
-    def capture_element(
-        self, 
-        screenshot_name: str, 
-        element_id: str) -> bytes:
-        shot_bytes: bytes = None
+    def capture_element(self, element_id: str, screenshot_name: Optional[str|None] = None) -> bytes|None:
+        """
+        Captures a screenshot of a provide SAP GUI element as bytes. 
+        Bytes can then be saved to a file or base64 encoded and added to the log.
+
+        Arguments:
+            element_id {str} -- SAP GUI element to capture
+            screenshot_name {Optional[str]} -- Name of screenshot
+
+        Returns:
+            bytes|None -- Returns the bytes of the screenshot or None
+        """
+        shot_bytes: bytes|None = None
         try:
             __element = self.session.FindById(self.ace_id(element_id))
             __pos = (
@@ -131,19 +185,41 @@ class Session:
                 __element.Width, 
                 __element.Height
             )
-            shot_bytes = self.hard_copy(__element.Name, "PNG", __pos)
+            if screenshot_name is not None:
+                shot_bytes = self.hard_copy(screenshot_name, "PNG", __pos)
+            else:
+                shot_bytes = self.hard_copy(__element.Name, "PNG", __pos)
         except Exception as err:
             self.handle_unknown_exception(
-                msg="Unhandled exception during screen capture", 
-                ss_name="take_screenshot_exception", 
+                msg="Unhandled exception during element capture", 
+                ss_name="capture_element_exception", 
                 error=err)
         return shot_bytes
     
     # Helpers
-    def get_env(self, var: str) -> Any:
+    def get_env(self, var: str) -> Any|None:
+        """
+        Gets a provided user/system environment variable. 
+        Useful to fetch usernames/password or other sensitive data that you might not want to store in a public data file.
+
+        Arguments:
+            var {str} -- Name of environment variable to get
+
+        Returns:
+            Any|None -- Returns the value of the environment variable or None
+        """
         return os.getenv(var)
     
     def is_element(self, element: str) -> bool:
+        """
+        Handler to check is a provided string is a valid SAP GUI element id for the current window and session.
+
+        Arguments:
+            element {str} -- SAP GUI element id
+
+        Returns:
+            bool -- Returns True if element exist otherwise False
+        """
         try:
             __element = self.ace_id(element)
             self.current_element = self.session.findById(__element)
@@ -159,6 +235,9 @@ class Session:
         return False
 
     def exit(self) -> None:
+        """
+        Exits the current SAP GUI session and window.
+        """
         try:
             self.connection.closeSession(self.ace_id())
             self.connection.closeConnection()
@@ -172,6 +251,12 @@ class Session:
                 error=err)
     
     def cleanup(self) -> None:
+        """
+        Handler for cleanup at end of session usage. 
+        If CloseOnCleanup flag is True then makes sure to exit open sessions even if process is terminated due to error.
+        Updates Case.Status.Result to Result.FAIL is any step has fails else to Result.PASS. 
+        Logs to case's final result status.
+        """
         if self.case.CloseSAPOnCleanup:
             self.exit()
         if self.case.Status.Result is None:
@@ -180,10 +265,17 @@ class Session:
         else:
             self.case.Status.Result = Result.PASS
         self.documentation(
-            f"{self.case.Name} completed with \
-                status: {self.case.Status.Result.value}")
+            f"{self.case.Name} completed with status: {self.case.Status.Result.value}")
 
     def wait(self, seconds: float) -> None:
+        """
+        Wait/Sleep for a given number fo seconds.
+        This function logs the wait in the current case's log. 
+        This function is blocking as it uses the standard python time.sleep function.
+
+        Arguments:
+            seconds {float} -- Number of seconds to wait
+        """
         if seconds == 1.0:
             self.documentation(f"Waiting 1 second...")
         else:
@@ -191,6 +283,16 @@ class Session:
         sleep(seconds)
     
     def wait_for_element(self, id: str, timeout: Optional[float] = 60.0) -> None:
+        """
+        Waits <timeout> seconds for the provided SAP GUI element to become ready or available.
+        Rechecks ever half second.
+
+        Arguments:
+            id {str} -- SAP GUI element id
+
+        Keyword Arguments:
+            timeout {Optional[float]} -- timeout in seconds to wait for element to become available (default: {60.0})
+        """
         try:
             __id = self.ace_id(id)
             t = Timer()
@@ -208,20 +310,27 @@ class Session:
                     msg=f"Found element with id: {__id}", 
                     ss_name="wait_for_element_pass")
         except Exception as err:
-            # self.logger.log.warning(msg=f"Unhandled exception while waiting for element|{err}")
             self.handle_unknown_exception(
                 msg=f"Unhandled exception waiting for element id: {id}", 
                 ss_name="wait_for_element_exception", 
                 error=err)
 
     def try_and_continue(self, func: object, *args, **kwargs) -> Any:
+        """
+        Wrapper to try running provided function and continue logging a PASS status even if there is an error or failure.
+
+        Arguments:
+            func {object} -- Function to execute
+
+        Returns:
+            Any -- Returns the result of the called function if function has a return value or None
+        """
         __result = None
         try:
             if hasattr(self, func) and callable(func := getattr(self, func)):
                 __result = func(*args, **kwargs)
         except Exception as err:
-            self.logger.log.info(f"Unhandled exception during Try and Continue \
-                wrapped function: {func}")
+            self.logger.log.info(f"Unhandled exception during Try and Continue wrapped function: {func}")
             self.current_step.Status.Result = Result.WARN
             self.current_step.Status.Error = err
             self.case.Status.PassedSteps.append(self.current_step)
@@ -233,10 +342,28 @@ class Session:
                 )            
         return __result
     
-    def parse_document_number(self) -> str:
+    def parse_document_number(self) -> str|None:
+        """
+        Extracts and return a document number for the SAP GUI status bar element. 
+        Often used immediately after the save function to get the newly created SAP document, 
+        shown in the status bar.
+
+        Returns:
+            str -- Parsed document number from status bar
+        """
         return re.search("\d+", self.sbar.Text).group(0)
 
     def ace_id(self, id: Optional[str] = None) -> str:
+        """
+        Handler to auto complete partial SAP GUI element ids.
+        If not id argument is provided the SAP GUI element id of the main window of the current session is returned.
+
+        Keyword Arguments:
+            id {Optional[str]} -- Optional (partial) SAP GUI element id complete (default: {None})
+
+        Returns:
+            str -- Full SAP GUI element id
+        """
         base_id: str = f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.__window_number}]"
         if id in ("",  " ", None):
             return base_id
@@ -264,17 +391,27 @@ class Session:
             return id
     
     def documentation(self, msg: Optional[str] = None) -> None:
-        _msg = msg if msg is not None else f"{self.current_step.Name} \
-            -- {self.current_step.Description}"
+        """
+        Handler for documenting a msg in the log.
+
+        Keyword Arguments:
+            msg {Optional[str]} -- Optional msg to be logged (default: {f"{self.current_step.Name} -- {self.current_step.Description}"})
+        """
+        _msg = msg if msg is not None else f"{self.current_step.Name} -- {self.current_step.Description}"
         if _msg is not None and _msg != "" and _msg != "--":
             self.logger.log.documentation(_msg)
     
     @explicit_wait_before(wait_time=__explicit_wait__)
-    def step_fail(
-        self, 
-        msg: Optional[str] = None, 
-        ss_name: Optional[str] = None, 
-        error: Optional[str] = None) -> None:
+    def step_fail(self, msg: Optional[str] = None, ss_name: Optional[str] = None, error: Optional[str] = None) -> None:
+        """
+        Handler for test case steps, called when step fails or is unsuccessful.
+        Does not ensure step result only that step returned a python error.
+
+        Keyword Arguments:
+            msg {Optional[str]} -- Optional msg to include in logging (default: {None})
+            ss_name {Optional[str]} -- Name of screenshot if ScreenshotOnFail flag is set for the current case (default: {None})
+            error {Optional[str]} -- Optional passing of standard python error text to be logged (default: {None})
+        """
         if msg:
             self.logger.log.error(msg)
         self.current_step.Status.Result = Result.FAIL
@@ -290,10 +427,15 @@ class Session:
             sys.exit()
 
     @explicit_wait_before(wait_time=__explicit_wait__)
-    def step_pass(
-        self, 
-        msg: Optional[str] = None, 
-        ss_name: Optional[str] = None) -> None:
+    def step_pass(self, msg: Optional[str] = None, ss_name: Optional[str] = None) -> None:
+        """
+        Handler for test case steps, called when step passes or is successful.
+        Does not ensure step result only that step completed without throwing a python error.
+
+        Keyword Arguments:
+            msg {Optional[str]} -- Optional msg to include in logging (default: {None})
+            ss_name {Optional[str]} -- Name of screenshot if ScreenshotOnPass flag is set for the current case (default: {None})
+        """
         if msg:
             self.logger.log.info(msg)
         self.current_step.Status.Result = Result.PASS
@@ -307,6 +449,16 @@ class Session:
     
     @explicit_wait_before(wait_time=__explicit_wait__)
     def handle_unknown_exception(self, msg: Optional[str] = None, ss_name: Optional[str] = None, error: Optional[str] = None) -> None:
+        """
+        Handler for python errors during execution of test steps. 
+        If the current case's FailOnError flag is set to True the case is marked as failed, 
+        else if the flag is False the error is logged as a warning msg and test case execution continues.
+
+        Keyword Arguments:
+            msg {Optional[str]} -- Optionals msg used when calling step_fail when FailOnError flag is True (default: {None})
+            ss_name {Optional[str]} -- Optionals name of screenshot used when calling step_fail when FailOnError flag is True (default: {None})
+            error {Optional[str]} -- Optional passing of standard python error text to be logged (default: {None})
+        """
         if self.case.FailOnError:
             self.step_fail(msg=msg, ss_name=ss_name, error=error)
         else:
@@ -331,6 +483,28 @@ class Session:
         system: Optional[str] = None, 
         steps: Optional[list[Step]] = None, 
         data: Optional[dict] = None) -> None:
+        """
+        Create a new test case instance.
+
+        Keyword Arguments:
+            name {Optional[str]} -- Name of test case (default: {f"test_{datetime.now().strftime('%m%d%Y_%H%M%S')}"})
+            desc {Optional[str]} -- Description of test case (default: {""})
+            bpo {Optional[str]} -- Business Process Owner or responsible business user (default: {"Business Process Owner"})
+            ito {Optional[str]} -- IT Owner or responsible IT user (default: {"Technical Owner"})
+            doc_link {Optional[str]} -- Link to external documentation (default: {""})
+            case_path {Optional[Path]} -- External path for test case data (default: {function<get_main_dir>})
+            log_config {Optional[LoggingConfig]} -- Custom log configuration object (default: {class<LoggingConfig>})
+            date_format {Optional[str]} -- Custom string date format (default: {"%m/%d/%Y"})
+            explicit_wait {Optional[float]} -- Sets the wait time in seconds (default: {0.25})
+            screenshot_on_pass {Optional[bool]} -- Sets flag to capture screenshots when steps pass (default: {False})
+            screenshot_on_fail {Optional[bool]} -- Sets flag to capture screenshots when steps fail (default: {False})
+            fail_on_error {Optional[bool]} -- Sets flag to fail steps if there is a python error (default: {True})
+            exit_on_fail {Optional[bool]} -- Sets flag to stop and exit the script if there is a failed step (default: {True})
+            close_on_cleanup {Optional[bool]} -- Sets flag to close the open SAP GUI window/session during cleanup (default: {True})
+            system {Optional[str]} -- _description_ (default: {""})
+            steps {Optional[list[Step]]} -- _description_ (default: {class<list>})
+            data {Optional[dict]} -- _description_ (default: {class<object>})
+        """
         __name = name if name is not None else Case.default_name()
         __desc = desc if desc is not None else Case.empty_string()
         __bpo = bpo if bpo is not None else Case.default_business_process_owner()
@@ -368,29 +542,51 @@ class Session:
             Data = __data)
         self.collect_case_meta_data()
     
-    def new_step(
-        self, 
-        action: str, 
-        id: Optional[str] = "", 
-        name: Optional[str] = None, 
-        desc: Optional[str] = None, 
-        *args, 
-        **kwargs) -> None:
-        __action = action
-        __name = name if name is not None else __action.replace("_", " ").title()
-        __desc = desc if desc is not None else ""
-        self.current_step = Step(
-            Action = __action, 
-            ElementId = id, 
-            Args = args, 
-            Kwargs = kwargs,
-            Name = __name, 
-            Description = __desc)
-        self.collect_step_meta_data()
-        self.case.Steps.append(self.current_step)
+    def new_step(self, action: str, id: Optional[str] = "", name: Optional[str] = None, desc: Optional[str] = None, *args, **kwargs) -> None:
+        """
+        Create a new test case step and add it to the current Case's step list.
+
+        Arguments:
+            action {str} -- calling functions name
+
+        Keyword Arguments:
+            id {Optional[str]} -- SAP GUI element id, if used (default: {""})
+            name {Optional[str]} -- Optional step name for reporting (default: {None})
+            desc {Optional[str]} -- Optional step description for reporting (default: {None})
+        """
+        try:
+            __action = action
+            __name = name if name is not None else __action.replace("_", " ").title()
+            __desc = desc if desc is not None else ""
+            self.current_step = Step(
+                Action = __action, 
+                ElementId = id, 
+                Args = args, 
+                Kwargs = kwargs,
+                Name = __name, 
+                Description = __desc)
+            self.collect_step_meta_data()
+            self.case.Steps.append(self.current_step)
+        except Exception as err:
+            self.logger.log.warning(msg=f"Unhandled exception while creating new step|{err}")
 
     @explicit_wait_before(wait_time=__explicit_wait__)
     def collect_step_meta_data(self) -> None:
+        """
+        Collect SAP metadata for current test step.
+        Data collected includes:
+        - Application Server
+        - Language
+        - Program
+        - Response Time
+        - Round Trips
+        - Screen Number
+        - System Name
+        - System Number
+        - System Session Id
+        - Transaction
+        - User Id
+        """
         try:
             if self.current_step and self.session:
                 self.current_step.ApplicationServer = self.session_info.ApplicationServer
@@ -409,6 +605,9 @@ class Session:
     
     @explicit_wait_before(wait_time=__explicit_wait__)
     def collect_case_meta_data(self) -> None:
+        """
+        Collects SAP version metadata of current session.
+        """
         try:
             if self.case and self.session:
                 self.case.SapMajorVersion = self.sap_app.MajorVersion
@@ -419,6 +618,15 @@ class Session:
             self.logger.log.warning(msg=f"Unhandled exception while collecting case metadata|{err}")
     
     def load_case_from_json_file(self, data_file: str) -> dict:
+        """
+        Load test case data from a json file
+
+        Arguments:
+            data_file {str} -- Path the json data file.
+
+        Returns:
+            dict -- Returns a python dictionary of the parsed json data.
+        """
         __data: dict = json.load(open(data_file, "rb"))
         self.case.Name = __data.get("case_name", f"test_{datetime.datetime.now().strftime('%m%d%Y_%H%M%S')}")
         self.case.Description = __data.get("description", "")
@@ -439,6 +647,12 @@ class Session:
     
     # Connection Actions
     def open_connection(self, connection_name: str) -> None:
+        """
+        Open win32 api connection to SAP GUI application.
+
+        Arguments:
+            connection_name {str} -- SAP environment name to connect with, can be found in the login pad.
+        """
         self.new_step(action="open_connection", connection_name=connection_name)
         self.connection_name = connection_name if connection_name else self.connection_name
         self.documentation(msg=f"Opening connection for {self.connection_name}")
@@ -483,6 +697,13 @@ class Session:
 
     # Session Actions
     def restart_session(self, delay: Optional[float] = 0.0) -> None:
+        """
+        Restart the SAP GUI session
+
+        Keyword Arguments:
+            delay {Optional[float]} -- Time in seconds to wait after relaunching the SAP GUI session. (default: {0.0})
+        """
+        self.new_step(action="restart_session")
         try:
             self.exit()
             self.open_connection(self.connection_name)
@@ -499,6 +720,9 @@ class Session:
 
     @explicit_wait_before(wait_time=__explicit_wait__)
     def collect_session_info(self) -> None:
+        """
+        Collects various data point for the current SAP GUI session and SAP window elements.
+        """
         try:
             if self.session:
                 self.wait_for_element(self.ace_id())
@@ -516,11 +740,22 @@ class Session:
     
     # Window Actions
     @explicit_wait_before(wait_time=__explicit_wait__)
-    def check_for_modal(self, match_text: str, 
-                        match_id: Optional[str] = None, 
-                        is_match: Optional[bool]=True, 
-                        action: Optional[object]=None, 
-                        **kwargs) -> bool:
+    def check_for_modal(self, match_text: str, match_id: Optional[str] = None, is_match: Optional[bool]=True, action: Optional[object]=None, **kwargs) -> bool:
+        """
+        Check for open SAP modal windows (popup windows or msg box windows).
+
+        Arguments:
+            match_text {str} -- Text to match against the modal window's title text
+
+        Keyword Arguments:
+            match_id {Optional[str]} -- Optional SAP GUI element id to match against rather than the modal window title element (default: {None})
+            is_match {Optional[bool]} -- Optional boolean flag to invert the result of the element text match (default: {True})
+            action {Optional[object]} -- Optional function to execute on successful match (default: {None})
+
+        Returns:
+            bool -- Returns True if there is a modal type window open otherwise False
+        """
+        self.new_step(action="check_for_modal", match_text=match_text, match_id=match_id, is_match=is_match, my_action=action, **kwargs)
         modal_window = None
         try:
             modal_window = self.session.ActiveWindow
@@ -538,7 +773,6 @@ class Session:
                                 action(**kwargs)
                                 return True
                             else:
-                                # modal_window.Close()
                                 return True
                     else:
                         if not is_match:
@@ -574,6 +808,12 @@ class Session:
         return False
     
     def start_transaction(self, transaction: str) -> None:
+        """
+        Starts a provided transaction in the current SAP GUI session.
+
+        Arguments:
+            transaction {str} -- A valid SAP transaction
+        """
         self.new_step(action="start_transaction", transaction=transaction)
         self.current_transaction = transaction.upper()
         try:
@@ -588,8 +828,15 @@ class Session:
                 error=err)
     
     def end_transaction(self) -> None:
+        """
+        Ends the currently active SAP transaction and returns the current session to the Easy Access Menu.
+        """
+        self.new_step(action="end_transaction", transaction=self.current_transaction)
         try:
             self.session.endTransaction()
+            self.step_pass(
+                msg=f"Successfully ended transaction: {self.current_transaction}", 
+                ss_name="end_transaction_pass")
         except Exception as err:
             self.handle_unknown_exception(
                 msg="Unhandled exception during end_transaction.", 
@@ -598,6 +845,14 @@ class Session:
     
     @explicit_wait_before(wait_time=__explicit_wait__)
     def set_v_scrollbar(self, id: str, pos: int) -> None:
+        """
+        Set the vertical scroll position of the provided SAP GUI scrollbar.
+
+        Arguments:
+            id {str} -- SAP GUI element id of the vertical scrollbar
+            pos {int} -- Integer value to set the scroolbar position
+        """
+        self.new_step(action="set_v_scrollbar", id=id, pos=pos)
         if self.is_element(id):
             try:
                 self.current_element.verticalScrollbar.position = pos
@@ -613,7 +868,17 @@ class Session:
                     error=err)
 
     @explicit_wait_before(wait_time=__explicit_wait__)
-    def get_v_scrollbar(self, id: str) -> int | None:
+    def get_v_scrollbar(self, id: str) -> int|None:
+        """
+        Get the current vertical position of the provided SAP GUI scrollbar 
+
+        Arguments:
+            id {str} -- SAP GUI element id of the vertical scrollbar
+
+        Returns:
+            int|None -- Returns an integer value or None
+        """
+        self.new_step(action="get_v_scrollbar", id=id)
         __position: int = None
         if self.is_element(id):
             try:
@@ -630,6 +895,14 @@ class Session:
 
     @explicit_wait_before(wait_time=__explicit_wait__)
     def set_h_scrollbar(self, id: str, pos: int) -> None:
+        """
+        Set the horizontal scroll position of the provided SAP GUI scrollbar. 
+
+        Arguments:
+            id {str} -- SAP GUI element id of the horizontal scrollbar
+            pos {int} -- Integer value to set the scroolbar position
+        """
+        self.new_step(action="set_h_scrollbar", id=id, pos=pos)
         if self.is_element(id):
             try:
                 self.current_element.horizontalScrollbar.position = pos
@@ -645,7 +918,17 @@ class Session:
                     error=err)
 
     @explicit_wait_before(wait_time=__explicit_wait__)
-    def get_h_scrollbar(self, id: str) -> int | None:
+    def get_h_scrollbar(self, id: str) -> int|None:
+        """
+        Get the current horizontal position of the provided SAP GUI scrollbar
+
+        Arguments:
+            id {str} -- SAP GUI element id of the horizontal scrollbar
+
+        Returns:
+            int|None -- Returns an integer value or None
+        """
+        self.new_step(action="get_h_scrollbar", id=id)
         __position: int = None
         if self.is_element(id):
             try:
@@ -662,6 +945,10 @@ class Session:
 
     @explicit_wait_before(wait_time=__explicit_wait__)
     def maximize_window(self) -> None:
+        """
+        Maximizes the current SAP GUI window.
+        """
+        self.new_step(action="maximize_window")
         try:
             self.main_window.maximize()
             self.step_pass(msg="Window maximized.", ss_name="maximize_window_pass")
@@ -674,9 +961,16 @@ class Session:
     # Keyboard & Mouse Actions
     @explicit_wait_after(wait_time=__explicit_wait__)
     def click_element(self, id: str) -> None:
+        """
+        Clicks the SAP GUI element identified by the id provided. 
+
+        Arguments:
+            id {str} -- Id of the SAP GUI element to be clicked
+        """
+        self.new_step(action="click_element", id=id)
         if self.is_element(id):
             try:
-                if self.current_element.Type in ("GuiTab", "GuiMenu", "GuiRadioButtonq"):
+                if self.current_element.Type in ("GuiTab", "GuiMenu", "GuiRadioButton"):
                     self.current_element.Select()
                     self.step_pass(
                         msg="Successfully clicked element: %s" % self.current_element.Id, 
@@ -698,6 +992,14 @@ class Session:
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def click_toolbar_button(self, table_id: str, button_id: str) -> None:
+        """
+        Click a button that is part a table specific toolbar.
+
+        Arguments:
+            table_id {str} -- Id of the table of the toolbar
+            button_id {str} -- Id of the button to be clicked
+        """
+        self.new_step(action="click_toolbar_button", id=button_id, table_id=table_id)
         if self.is_element(table_id):
             try:
                 self.current_element.pressToolbarButton(button_id)
@@ -708,35 +1010,52 @@ class Session:
             except AttributeError:
                 self.current_element.pressButton(button_id)
                 self.step_pass(
-                    msg=f"Successfully clicked toolbar button: {button_id} \
-                        for table: {self.current_element.Id}", 
+                    msg=f"Successfully clicked toolbar button: {button_id} for table: {self.current_element.Id}", 
                     ss_name="click_toolbar_button_pass")
             except Exception as err:
                 self.handle_unknown_exception(
-                    msg=f"Unhandled exception while clicking toolbar button: {button_id} \
-                        for table: {self.current_element.Id}",
+                    msg=f"Unhandled exception while clicking toolbar button: {button_id} for table: {self.current_element.Id}",
                     ss_name="click_toolbar_button_exception",
                     error=err)
                 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def double_click(self, id: str, item_id: str, column_id: str) -> None:
+        """
+        Double click an element that is a child of a SAP GUI shell element.
+
+        Arguments:
+            id {str} -- Id of the SAP GUI shell
+            item_id {str} -- Id of the element to be double clicked
+            column_id {str} -- Id of the parent shell's column where the element to be double clicked is located
+        """
+        self.new_step(action="double_click", id=id, item_id=item_id, column_id=column_id)
         if self.is_element(id):
             try:
                 if self.current_element.Type == "GuiShell":
                     self.current_element.doubleClickItem(item_id, column_id)
                 self.step_pass(
-                    msg=f"Successfully double clicked id: {self.current_element.Id} at \
-                        item: {item_id} and column: {column_id}", 
+                    msg=f"Successfully double clicked id: {self.current_element.Id} at item: {item_id} and column: {column_id}", 
                     ss_name="double_click_pass")
             except Exception as err:
                 self.handle_unknown_exception(
-                    msg=f"Unhandled exception while double clicking: {self.current_element.Id} \
-                        item: {item_id} and column: {column_id}",
+                    msg=f"Unhandled exception while double clicking: {self.current_element.Id} item: {item_id} and column: {column_id}",
                     ss_name="double_click_exception",
                     error=err)
 
     @explicit_wait_before(wait_time=__explicit_wait__)
-    def get_cell_value(self, table_id: str, row_num: int, column_id: str) -> str | None:
+    def get_cell_value(self, table_id: str, row_num: int, column_id: str) -> str|None:
+        """
+        Returns the value of the cell specified by the table, row, and column ids.
+
+        Arguments:
+            table_id {str} -- Id of the SAP GUI table element containing the cell
+            row_num {int} -- Row id of the cell
+            column_id {str} -- Column id of the cell
+
+        Returns:
+            str|None -- Returns a string of the cell value or None if the cell is not found
+        """
+        self.new_step(action="get_cell_value", id=table_id, row_num=row_num, column_id=column_id)
         __value: str = None
         if self.is_element(table_id):
             try:
@@ -754,28 +1073,43 @@ class Session:
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def set_combobox(self, id: str, key: str) -> None:
+        """
+        Sets the selection of a SAP GUI combobox element.
+
+        Arguments:
+            id {str} -- Id of the combobox element
+            key {str} -- Key of the selection to be set
+        """
+        self.new_step(action="set_combobox", id=id, key=key)
         if self.is_element(id):
             try:
                 if self.current_element.Id == "GuiComboBox":
                     self.session.findById(self.current_element.Id).key = key
-                    self.step_pass(msg=f"Successfully set combobox: {self.current_element.Id} \
-                        with key: {key}", 
+                    self.step_pass(msg=f"Successfully set combobox: {self.current_element.Id} with key: {key}", 
                         ss_name="set_combobox_pass")
             except Exception as err:
                 self.handle_unknown_exception(
-                    msg=f"Unhandled exception setting combobox: {self.current_element.Id} \
-                        with key: {key}",
+                    msg=f"Unhandled exception setting combobox: {self.current_element.Id} with key: {key}",
                     ss_name="set_combobox_exception",
                     error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
-    def get_row_count(self, table_id: str) -> int | None:
+    def get_row_count(self, table_id: str) -> int|None:
+        """
+        Returns the count of rows of the SAP GUI table specified by the table_id.
+
+        Arguments:
+            table_id {str} -- Id of the table on which to count rows
+
+        Returns:
+            int|None -- Returns an integer of the number of rows in the table or None if the table is not found
+        """
+        self.new_step(action="get_row_count", id=table_id)
         __count: int = None
         if self.is_element(table_id):
             try:
                 __count = self.current_element.rowCount
-                self.step_pass(msg=f"Successfully got count: {__count} from \
-                    table: {self.current_element.Id}", ss_name="get_row_count_pass")
+                self.step_pass(msg=f"Successfully got count: {__count} from table: {self.current_element.Id}", ss_name="get_row_count_pass")
             except Exception as err:
                 self.handle_unknown_exception(
                     msg=f"Unhandled exception getting count from table: {self.current_element.Id}",
@@ -784,13 +1118,19 @@ class Session:
         return __count
 
     @explicit_wait_after(wait_time=__explicit_wait__)
-    def get_window_title(self) -> str | None:
+    def get_window_title(self) -> str|None:
+        """
+        Returns the string value of the currently active main window.
+
+        Returns:
+            str|None -- Returns the value of the main window or None if there is no currently active main window
+        """
+        self.new_step(action="get_window_title")
         self.current_element = self.titl
         __title: str = None
         try:
             __title = self.current_element.Text
-            self.step_pass(msg=f"Successfully got window title: {__title} from \
-                window: {self.current_element.Id}", ss_name="get_window_title_pass")
+            self.step_pass(msg=f"Successfully got window title: {__title} from window: {self.current_element.Id}", ss_name="get_window_title_pass")
         except Exception as err:
             self.handle_unknown_exception(
                 msg=f"Unhandled exception getting window title for window: {self.current_element.Id}",
@@ -799,7 +1139,32 @@ class Session:
         return __title
 
     @explicit_wait_after(wait_time=__explicit_wait__)
-    def get_value(self, id: str) -> str | None:
+    def get_value(self, id: str) -> str|None:
+        """
+        Returns the string value of the SAP GUI element specified by the id. 
+        Only applies to elements which have a text property.
+        Valid element types: 
+            GuiCheckBox
+            GuiRadioButton
+            GuiComboBox
+            GuiTextField
+            GuiCTextField
+            GuiPasswordField
+            GuiLabel
+            GuiTitlebar
+            GuiStatusbar
+            GuiButton
+            GuiTab
+            GuiShell
+            GuiStatusPane
+
+        Arguments:
+            id {str} -- Id of the element
+
+        Returns:
+            str|None -- Return the value of the element or None if the element if not found or if the element is of a type which does not have a text property
+        """
+        self.new_step(action="get_value", id=id)
         __value: str = None
         if self.is_element(id):
             try:
@@ -827,6 +1192,13 @@ class Session:
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def set_text(self, id: str, text: str) -> None:
+        """
+        Set the text property of the SAP GUI element specified by the id.
+
+        Arguments:
+            id {str} -- Id of the element
+            text {str} -- Value to set the text property
+        """
         self.new_step(action="set_text", id=id, text=text)
         if self.is_element(id):
             try:
@@ -843,6 +1215,15 @@ class Session:
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def set_cell_value(self, table_id: str, row: int, col: str, text: str) -> None:
+        """
+        Set the value of a table cell specified by the row and column.
+
+        Arguments:
+            table_id {str} -- Id of the SAP GUI table element
+            row {int} -- Row number of the cell, zero based
+            col {str} -- Name of the table column of the cell
+            text {str} -- Value to set the cell
+        """
         self.new_step(action="set_cell_value", id=table_id, row=row, col=col, text=text)
         if self.is_element(table_id):
             try:
@@ -856,6 +1237,13 @@ class Session:
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def set_checkbox(self, id: str, state: bool) -> None:
+        """
+        Set the state of a SAP GUI checkbox.
+
+        Arguments:
+            id {str} -- Id of the checkbox element
+            state {bool} -- State to which to set the checkbox. True is checked and False is unchecked
+        """
         self.new_step(action="set_checkbox", id=id, state=state)
         if self.is_element(id):
             try:
@@ -866,8 +1254,7 @@ class Session:
                     self.step_fail(msg=f"", ss_name="set_checkbox_fail")
             except Exception as err:
                 self.handle_unknown_exception(
-                    msg=f"Unhandled exception while selecting checkbox: {self.current_element.Id} \
-                        in: {self.current_element.Id}",
+                    msg=f"Unhandled exception while selecting checkbox: {self.current_element.Id} in: {self.current_element.Id}",
                     ss_name="set_checkbox_exception",
                     error=err)
         else:
@@ -879,6 +1266,14 @@ class Session:
     # Buttons & Keys
     @explicit_wait_after(wait_time=__explicit_wait__)
     def send_vkey(self, vkey: str) -> None:
+        """
+        Send a virtual key press to the currently active main window of the SAP GUi session.
+        A complete list of supported virtual keys can be found in Flow.Data.VKEYS
+
+        Arguments:
+            vkey {str} -- Virtual key to send to the window
+        """
+        self.new_step(action="send_vkey", vkey=vkey)
         __vkey_id: str = str(vkey)
         if not __vkey_id.isdigit():
             __search_comb: str = __vkey_id.upper()
@@ -910,6 +1305,9 @@ class Session:
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def enter(self) -> None:
+        """
+        Send a virtual enter key press to the currently active main window of the session.
+        """
         self.new_step(action="enter")
         try:
             self.send_vkey(vkey="ENTER")
@@ -922,6 +1320,9 @@ class Session:
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def save(self) -> None:
+        """
+        Send a virtual Ctrl+S key press sequence to the currently active main window of the session.
+        """
         self.new_step(action="save")
         try:
             self.send_vkey(vkey="CTRL+S")
@@ -934,103 +1335,111 @@ class Session:
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def back(self) -> None:
+        """
+        Send a virtual F3 key press to the currently active main window of the session.
+        """
         self.new_step(action="back")
         try:
             self.send_vkey(vkey="F3")
             self.step_pass(msg=f"Successfully sent BACK.", ss_name="back_pass")
         except Exception as err:
-            self.handle_unknown_exception(
-                    msg=f"Unhandled exception sending BACK.",
-                    ss_name="back_exception",
-                    error=err)
+            self.handle_unknown_exception(msg=f"Unhandled exception sending BACK.", ss_name="back_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def f8(self) -> None:
+        """
+        Send a virtual F8 key press to the currently active main window of the session.
+        """
+        self.new_step(action="f8")
         try:
             self.send_vkey(vkey="F8")
             self.step_pass(msg=f"Successfully sent F8.", ss_name="f8_pass")
         except Exception as err:
-            self.handle_unknown_exception(
-                    msg=f"Unhandled exception sending F8.",
-                    ss_name="f8_exception",
-                    error=err)
+            self.handle_unknown_exception(msg=f"Unhandled exception sending F8.", ss_name="f8_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def f5(self) -> None:
+        """
+        Send a virtual F5 key press to the currently active main window of the session.
+        """
+        self.new_step(action="f5")
         try:
             self.send_vkey(vkey="F5")
             self.step_pass(msg=f"Successfully sent F5.", ss_name="f5_pass")
         except Exception as err:
-            self.handle_unknown_exception(
-                    msg=f"Unhandled exception sending F5.",
-                    ss_name="f5_exception",
-                    error=err)
+            self.handle_unknown_exception(msg=f"Unhandled exception sending F5.", ss_name="f5_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def f6(self) -> None:
+        """
+        Send a virtual F6 key press to the currently active main window of the session.
+        """
+        self.new_step(action="f6")
         try:
             self.send_vkey(vkey="F6")
             self.step_pass(msg=f"Successfully sent F6.", ss_name="f6_pass")
         except Exception as err:
-            self.handle_unknown_exception(
-                    msg=f"Unhandled exception sending F6.",
-                    ss_name="f6_exception",
-                    error=err)
+            self.handle_unknown_exception(msg=f"Unhandled exception sending F6.", ss_name="f6_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def f7(self) -> None:
+        """
+        Send a virtual F7 key press to the currently active main window of the session.
+        """
+        self.new_step(action="f7")
         try:
             self.send_vkey(vkey="F7")
             self.step_pass(msg=f"Successfully sent F7.", ss_name="f7_pass")
         except Exception as err:
-            self.handle_unknown_exception(
-                    msg=f"Unhandled exception sending F7.",
-                    ss_name="f7_exception",
-                    error=err)
+            self.handle_unknown_exception(msg=f"Unhandled exception sending F7.", ss_name="f7_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def f4(self) -> None:
+        """
+        Send a virtual F4 key press to the currently active main window of the session.
+        """
+        self.new_step(action="f4")
         try:
             self.send_vkey(vkey="F4")
             self.step_pass(msg=f"Successfully sent F4.", ss_name="f4_pass")
         except Exception as err:
-            self.handle_unknown_exception(
-                    msg=f"Unhandled exception sending F4.",
-                    ss_name="f4_exception",
-                    error=err)
+            self.handle_unknown_exception(msg=f"Unhandled exception sending F4.", ss_name="f4_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def f3(self) -> None:
+        """
+        Send a virtual F3 key press to the currently active main window of the session.
+        """
+        self.new_step(action="f3")
         try:
             self.send_vkey(vkey="F3")
             self.step_pass(msg=f"Successfully sent F3.", ss_name="f3_pass")
         except Exception as err:
-            self.handle_unknown_exception(
-                    msg=f"Unhandled exception sending F3.",
-                    ss_name="f3_exception",
-                    error=err)
+            self.handle_unknown_exception(msg=f"Unhandled exception sending F3.", ss_name="f3_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def f2(self) -> None:
+        """
+        Send a virtual F2 key press to the currently active main window of the session.
+        """
+        self.new_step(action="f2")
         try:
             self.send_vkey(vkey="F2")
             self.step_pass(msg=f"Successfully sent F2.", ss_name="f2_pass")
         except Exception as err:
-            self.handle_unknown_exception(
-                    msg=f"Unhandled exception sending F2.",
-                    ss_name="f2_exception",
-                    error=err)
+            self.handle_unknown_exception(msg=f"Unhandled exception sending F2.", ss_name="f2_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def f1(self) -> None:
+        """
+        Send a virtual F1 key press to the currently active main window of the session.
+        """
+        self.new_step(action="f1")
         try:
             self.send_vkey(vkey="F1")
             self.step_pass(msg=f"Successfully sent F1.", ss_name="f1_pass")
         except Exception as err:
-            self.handle_unknown_exception(
-                    msg=f"Unhandled exception sending F1.",
-                    ss_name="f1_exception",
-                    error=err)
+            self.handle_unknown_exception(msg=f"Unhandled exception sending F1.", ss_name="f1_exception", error=err)
 
     # Assertions
     @explicit_wait_after(wait_time=__explicit_wait__)
@@ -1299,7 +1708,7 @@ class Session:
     def fill_va01_line_items(self, line_items: list[dict]) -> None:
         self.click_element(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01")
         for item in line_items:
-            # self.click_element(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/subSUBSCREEN_BUTTONS:SAPMV45A:4050/btnBT_POAN")
+            self.click_element(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/subSUBSCREEN_BUTTONS:SAPMV45A:4050/btnBT_POAN")
             self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtRV45A-MABNR[1,0]", text=item.get('material'))
             self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/txtRV45A-KWMENG[2,0]", text=item.get('qty'))
             self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-VRKME[3,0]", text=item.get('uom'))
