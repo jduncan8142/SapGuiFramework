@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 from os import path
-from SapGuiFramework import __version__
+from SapGuiFramework.Core.Framework import Session
 
 this_directory = path.abspath(path.dirname(__file__))
 with open('README.md') as f:
@@ -8,7 +8,7 @@ with open('README.md') as f:
 
 setup(
     name="SapGuiFramework",
-    version=__version__,
+    version=Session.__version__,
     author="Jason Duncan",
     author_email="jason.matthew.duncan@gmail.com",
     description="A Framework Library for controlling the SAP GUI desktop client",
