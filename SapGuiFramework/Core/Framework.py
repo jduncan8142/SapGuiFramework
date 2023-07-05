@@ -194,7 +194,7 @@ class Session:
         return shot_bytes
     
     # Helpers
-    def get_env(self, var: str) -> Any|None:
+    def get_env(self, var: str) -> str:
         """
         Gets a provided user/system environment variable. 
         Useful to fetch usernames/password or other sensitive data that you might not want to store in a public data file.
@@ -205,7 +205,7 @@ class Session:
         Returns:
             Any|None -- Returns the value of the environment variable or None
         """
-        return os.getenv(var)
+        return str(os.getenv(var), "")
     
     def is_element(self, element: str) -> bool:
         """
@@ -332,11 +332,7 @@ class Session:
             self.current_step.Status.Error = err
             self.case.Status.PassedSteps.append(self.current_step)
             if self.case.ScreenShotOnPass:
-                self.case.Status.PassedScreenShots.append(
-                    self.capture_fullscreen(
-                        screenshot_name="try_and_continue_exception"
-                    )
-                )            
+                self.case.Status.PassedScreenShots.append(self.capture_fullscreen(screenshot_name="try_and_continue_exception"))            
         return __result
     
     def parse_document_number(self) -> str|None:
@@ -415,11 +411,8 @@ class Session:
         self.current_step.Status.Error = error if error is not None else ""
         self.case.Status.FailedSteps.append(self.current_step)
         if self.case.ScreenShotOnFail:
-            __ss_name = ss_name if ss_name is not None else f"screenshot\
-                _{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            self.case.Status.FailedScreenShots.append(
-                self.capture_fullscreen(screenshot_name=__ss_name)
-            )
+            __ss_name = ss_name if ss_name is not None else f"screenshot_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            self.case.Status.FailedScreenShots.append(self.capture_fullscreen(screenshot_name=__ss_name))
         if self.case.ExitOnFail:
             sys.exit()
 
@@ -438,11 +431,8 @@ class Session:
         self.current_step.Status.Result = Result.PASS
         self.case.Status.PassedSteps.append(self.current_step)
         if self.case.ScreenShotOnPass:
-            __ss_name = ss_name if ss_name is not None else f"screenshot\
-                _{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            self.case.Status.PassedScreenShots.append(
-                self.capture_fullscreen(screenshot_name=__ss_name)
-            )
+            __ss_name = ss_name if ss_name is not None else f"screenshot_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            self.case.Status.PassedScreenShots.append(self.capture_fullscreen(screenshot_name=__ss_name))
     
     @explicit_wait_before(wait_time=__explicit_wait__)
     def handle_unknown_exception(self, msg: Optional[str] = None, ss_name: Optional[str] = None, error: Optional[str] = None) -> None:
@@ -969,23 +959,14 @@ class Session:
             try:
                 if self.current_element.Type in ("GuiTab", "GuiMenu", "GuiRadioButton"):
                     self.current_element.Select()
-                    self.step_pass(
-                        msg="Successfully clicked element: %s" % self.current_element.Id, 
-                        ss_name="click_element_success")
+                    self.step_pass(msg=f"Successfully clicked element: {id}", ss_name="click_element_success")
                 elif self.current_element.Type == "GuiButton":
                     self.current_element.Press()
-                    self.step_pass(
-                        msg="Successfully clicking GuiButton: %s" % self.current_element.Id, 
-                        ss_name="click_gui_button_success")
+                    self.step_pass(msg=f"Successfully clicking GuiButton: {id}", ss_name="click_gui_button_success")
                 else:
-                    self.step_fail(
-                        msg="Unable to click element: %s" % self.current_element.Id, 
-                        ss_name="click_element_failed")
+                    self.step_fail(msg=f"Unable to click element: {id}", ss_name="click_element_failed")
             except Exception as err:
-                self.handle_unknown_exception(
-                    msg=f"Unhandled exception while clicking element: %s" % self.current_element.Id,
-                    ss_name="click_element_exception",
-                    error=err)
+                self.handle_unknown_exception(msg=f"Unhandled exception while clicking element: {id}", ss_name="click_element_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def click_toolbar_button(self, table_id: str, button_id: str) -> None:
@@ -1705,7 +1686,6 @@ class Session:
     def fill_va01_line_items(self, line_items: list[dict]) -> None:
         self.click_element(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01")
         for item in line_items:
-            self.click_element(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/subSUBSCREEN_BUTTONS:SAPMV45A:4050/btnBT_POAN")
             self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtRV45A-MABNR[1,0]", text=item.get('material'))
             self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/txtRV45A-KWMENG[2,0]", text=item.get('qty'))
             self.set_text(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-VRKME[3,0]", text=item.get('uom'))
@@ -1753,6 +1733,14 @@ class Session:
                 options.add_argument("--headless")
             options.add_argument(f"--log-level={log_level}")
             self.web_driver = webdriver.Chrome(options=options)
+        else:
+            options = webdriver.ChromeOptions()
+            options.page_load_strategy = load_strategy
+            options.acceptInsecureCerts = insecure_certs
+            if headless:
+                options.add_argument("--headless")
+            options.add_argument(f"--log-level={log_level}")
+            self.web_driver = webdriver.Chrome(options=options)
         self.web_main_window_handle = self.web_driver.current_window_handle
         self.web_driver.maximize_window()
     
@@ -1784,9 +1772,15 @@ class Session:
     
     def web_wait_for_element(self, xpath: str, timeout: Optional[float] = 5.0, delay_time: Optional[float] = 1.0, wait_time: Optional[float] = None) -> None:
         t = Timer()
-        self.web_find_by_xpath(xpath=xpath, wait_time=wait_time)
-        while self.web_element.is_displayed() and t.elapsed() <= timeout:
-            self.wait(delay_time)
+        while t.elapsed() <= timeout:
+            self.web_find_by_xpath(xpath=xpath, wait_time=wait_time)
+            try:
+                if not self.web_element.is_displayed():
+                    self.wait(delay_time)
+                else:
+                    break
+            except Exception as err:
+                continue
     
     def web_set_text(self, xpath: str, text: str) -> None:
         self.web_find_by_xpath(xpath=xpath)
