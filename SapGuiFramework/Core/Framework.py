@@ -37,17 +37,14 @@ class Session:
         6. Register Session.cleanup function so it is called on exit
         """
         load_dotenv()
-        self.case: Case|None = None
+        self.case: Case = Case()
         self.logger: Logger|None = None
-        if self.case.LogConfig is None:
-            self.logger = Logger(config=LoggingConfig())
-        else:
-            self.logger = Logger(config=self.case.LogConfig)
+        self.logger = Logger(config=self.case.LogConfig)
         Session.__explicit_wait__ = self.case.ExplicitWait
         self.web_driver: webdriver|None = None
         self.web_element: WebElement|None = None
         self.web_iframe: WebElement|None = None
-        self.web_wait: float = os.getenv("HTML_WAIT") if os.getenv("HTML_WAIT") is not None else 3.0
+        self.web_wait: float = float(os.getenv("HTML_WAIT", "3.0"))
         self.__connection_number: int = 0
         self.__session_number: int = 0
         self.__window_number: int = 0
