@@ -1,1 +1,1 @@
-from SapGuiFramework import __version__
+from sapguiframework import __version__
