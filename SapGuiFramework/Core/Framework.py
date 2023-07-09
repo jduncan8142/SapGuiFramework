@@ -554,6 +554,7 @@ class Session:
                 Description = __desc)
             self.collect_step_meta_data()
             self.case.Steps.append(self.current_step)
+            self.logger.log.info(self.current_step.__repr__())
         except Exception as err:
             self.logger.log.warning(msg=f"Unhandled exception while creating new step|{err}")
 
@@ -1499,8 +1500,10 @@ class Session:
                         ss_name="assert_element_changeable_fail")
             except Exception as err:
                 self.handle_unknown_exception(
-                    msg=f"Unhandled exception while asserting changeability \
-                        of element: {self.current_element.Id}",
+                    msg=f"""\
+                    Unhandled exception while asserting changeability \
+                    of element: {self.current_element.Id}\
+                    """,
                     ss_name="assert_element_changeable_exception",
                     error=err)
         else:
@@ -1514,54 +1517,86 @@ class Session:
             try:
                 if contains_value in self.get_value(id=self.current_element.Id):
                     self.step_pass(
-                        msg=f"Assertion value contains for element: {self.current_element.Id} with \
-                            actual value: {self.get_value(id=self.current_element.Id)} \
-                            & expected contains value: {contains_value}", 
+                        msg=f"""\
+                        Assertion value contains for element: {self.current_element.Id} with \
+                        actual value: {self.get_value(id=self.current_element.Id)} \
+                        & expected contains value: {contains_value}\
+                        """, 
                         ss_name="assert_element_value_contains_pass")
                 else:
                     self.step_fail(
-                        msg=f"Assertion value contains failed for element: {self.current_element.Id} with \
-                            actual value: {self.get_value(id=self.current_element.Id)} \
-                            & expected value: {contains_value}", 
+                        msg=f"""\
+                        Assertion value contains failed for element: {self.current_element.Id} \
+                        with actual value: {self.get_value(id=self.current_element.Id)} \
+                        & expected value: {contains_value}\
+                        """, 
                         ss_name="assert_element_value_contains_fail")
             except Exception as err:
                 self.handle_unknown_exception(
-                    msg=f"Unhandled exception while asserting element: {self.current_element.Id} \
-                        contains: {contains_value}",
+                    msg=f"""\
+                    Unhandled exception while asserting element: {self.current_element.Id} \ 
+                    contains: {contains_value}\
+                    """,
                     ss_name="assert_element_value_contains_exception",
                     error=err)
         else:
             self.step_fail(
-                msg=f"Assertion value contains failed, element: {self.current_element.Id} is not present.", 
+                msg=f"""\
+                Assertion value contains failed, element: \
+                {self.current_element.Id} is not present.\
+                """, 
                 ss_name="assert_element_value_contains_fail")
     
     @explicit_wait_after(wait_time=__explicit_wait__)
     def assert_success_status(self) -> None:
         try:
             if self.sbar.MessageType == "S":
-                self.step_pass(
-                    msg=f"Status is success", 
-                    ss_name="assert_success_status_pass")
+                self.step_pass(msg=f"Status is success", ss_name="assert_success_status_pass")
             else:
                 self.step_fail(
                     msg=f"Status is {self.sbar.MessageType} -- {self.sbar.Text}", 
                     ss_name="assert_success_status_fail")
         except Exception as err:
             self.handle_unknown_exception(
-                msg=f"Unhandled exception while asserting success status",
-                ss_name="assert_success_status_exception",
+                msg=f"Unhandled exception while asserting success status", 
+                ss_name="assert_success_status_exception", 
+                error=err)
+    
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def assert_status(self, status: str) -> None:
+        try:
+            if self.sbar.MessageType == status:
+                self.step_pass(msg=f"Status is success", ss_name="assert_success_status_pass")
+            else:
+                self.step_fail(
+                    msg=f"Status is {self.sbar.MessageType} -- {self.sbar.Text}", 
+                    ss_name="assert_success_status_fail")
+        except Exception as err:
+            self.handle_unknown_exception(
+                msg=f"Unhandled exception while asserting success status", 
+                ss_name="assert_success_status_exception", 
                 error=err)
 
     # Screen Parsing & Visualization
-    def visualize_element(self, id: str, visualize: Optional[bool] = False) -> None:
+    def visualize_element(self, id: str, time_out: Optional[float] = 4.0) -> None:
+        """
+        Highlight the boarder of the SAP GUI element. 
+
+        Arguments:
+            id {str} -- SAP GUI element ID of the element to highlight
+
+        Keyword Arguments:
+            time_out {Optional[float]} -- timeout after which the highlighted boarder is removed (default: {4.0})
+        """
         if self.is_element(id):
+            t = Timer()
             try:
-                self.current_element.visualize(visualize) 
+                self.current_element.visualize(True)
+                while t.elapsed() <= time_out:
+                    self.wait(0.1)
+                self.current_element.visualize(False)
             except Exception as err:
-                self.handle_unknown_exception(
-                    msg=f"Unhandled exception visualizing element: {self.current_element.Id}",
-                    ss_name="visualize_element_exception",
-                    error=err)
+                self.handle_unknown_exception(msg=f"Unhandled exception visualizing element: {self.current_element.Id}", ss_name="visualize_element_exception", error=err)
 
     # Compound functions
     ## Tables
@@ -1663,44 +1698,91 @@ class Session:
                     ss_name="availability_control_exception", 
                     error=err)
     
-    def fill_va01_initial_screen(self, order_type: str, sales_org: str, dist_ch: str, division: str, sales_office: Optional[str] = "", sales_group: Optional[str] = "") -> None:
-        self.set_text(id="usr/ctxtVBAK-AUART", text=order_type)
-        self.set_text(id="usr/ctxtVBAK-VKORG", text=sales_org)
-        self.set_text(id="usr/ctxtVBAK-VTWEG", text=dist_ch)
-        self.set_text(id="usr/ctxtVBAK-SPART", text=division)
-        self.set_text(id="usr/ctxtVBAK-VKBUR", text=sales_office)
-        self.set_text(id="usr/ctxtVBAK-VKGRP", text=sales_group)
-        self.enter()
+    def fill_va01_initial_screen(
+        self, 
+        order_type: Optional[str|None] = None, 
+        sales_org: Optional[str|None] = None, 
+        dist_ch: Optional[str|None] = None, 
+        division: Optional[str|None] = None, 
+        sales_office: Optional[str|None] = None, 
+        sales_group: Optional[str|None] = None,
+        enter_after_fill: Optional[bool] = True
+        ) -> None:
+        """
+        Fill in initial screen fields of the SAP transaction VA01.
 
-    def fill_va01_header(self, sold_to: str, ship_to: str, customer_reference: Optional[str] = None, customer_reference_date: Optional[str] = None) -> None:
-        self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUAGV-KUNNR", text=sold_to)
-        self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUWEV-KUNNR", text=ship_to)
+        Keyword Arguments:
+            order_type {Optional[str | None]} -- Order type for the sales order (default: {None})
+            sales_org {Optional[str | None]} -- Sales organization of the sales order (default: {None})
+            dist_ch {Optional[str | None]} -- Distribution channel of the sales order (default: {None})
+            division {Optional[str | None]} -- Division of the sales order (default: {None})
+            sales_office {Optional[str | None]} -- Sales office of the sales order (default: {None})
+            sales_group {Optional[str | None]} -- Sales group of the sales order (default: {None})
+            enter_after_fill {Optional[bool]} -- Flag determining if enter should be pressed after filling the screen fields (default: {True})
+        """
+        if order_type is not None:
+            self.set_text(id="usr/ctxtVBAK-AUART", text=order_type)
+        if sales_org is not None:
+            self.set_text(id="usr/ctxtVBAK-VKORG", text=sales_org)
+        if dist_ch is not None:
+            self.set_text(id="usr/ctxtVBAK-VTWEG", text=dist_ch)
+        if division is not None:
+            self.set_text(id="usr/ctxtVBAK-SPART", text=division)
+        if sales_office is not None:
+            self.set_text(id="usr/ctxtVBAK-VKBUR", text=sales_office)
+        if sales_group is not None:
+            self.set_text(id="usr/ctxtVBAK-VKGRP", text=sales_group)
+        if enter_after_fill:
+            self.enter()
+
+    def fill_va01_header(
+        self, 
+        sold_to: Optional[str|None] = None, 
+        ship_to: Optional[str|None] = None, 
+        customer_reference: Optional[str|None] = None, 
+        customer_reference_date: Optional[str|None] = None,
+        enter_after_fill: Optional[bool] = True
+        ) -> None:
+        """
+        Fill in transaction VA01 header data from sold-to, ship-to, customer reference, & cust. ref. date.
+        Customer reference is required. If attribute is None then PO_{'%Y%m%d_%H%M%S'} is used.
+
+        Keyword Arguments:
+            sold_to {Optional[str | None]} -- Sold-To partner number (default: {None})
+            ship_to {Optional[str | None]} -- Ship-To partner number (default: {None})
+            customer_reference {Optional[str | None]} -- Customer's reference document or custom PO number (default: {None})
+            customer_reference_date {Optional[str | None]} -- Customer's reference document date (default: {None})
+            enter_after_fill {Optional[bool]} -- Flag determining if enter should be pressed after filling the screen fields (default: {True})
+        """
+        if sold_to is not None:
+            self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUAGV-KUNNR", text=sold_to)
+        if ship_to is not None:
+            self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUWEV-KUNNR", text=ship_to)
         if customer_reference is not None:
             self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=customer_reference)
         else:
             self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/txtVBKD-BSTKD", text=f"PO_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}")
         if customer_reference_date is not None:
             self.set_text(id="usr/subSUBSCREEN_HEADER:SAPMV45A:4021/ctxtVBKD-BSTDK", text=customer_reference_date)
-        self.enter()
+        if enter_after_fill:
+            self.enter()
 
     def fill_va01_line_items(self, line_items: list[dict]) -> None:
         """
-        Fills a sales order in transaction VA01 with line item data provided as a list of key value pairs from the line_items attribute.
+        Fills in transaction VA01 with line item data provided as a list of key value pairs from the line_items attribute.
+        The keys for each line item must include at least: 
+        - material
+        - qty
+        - uom
+        Optional keys include: 
+        - amount
+        - customer_material
+        - item_category
+        - shipping_point
+        - storage_location
 
         Arguments:
             line_items {list[dict]} -- A list of key-value pairs of line item data like:
-                "items": [
-                    {
-                        "material": 1223344556,
-                        "qty": 10,
-                        "uom": "PC", 
-                        "customer_material": "123456789",
-                        "item_category": "TAN"
-                        "amount": "10.00", 
-                        "storage_location": "1234",
-                        "shipping_point": "6789",
-                    }
-                ]
         """
         self.click_element(id="usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\\01")
         for item in line_items:
@@ -1721,21 +1803,66 @@ class Session:
     
     ## Delivery
     def display_delivery(self, delivery: str) -> None:
+        """
+        Open transaction VL03N for a provided outbound delivery document.
+
+        Arguments:
+            delivery {str} -- Outbound delivery document
+        """
         self.start_transaction("VL03N")
         self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLIKP-VBELN", text=delivery)
-        self.wait(0.5)
         self.enter()
 
-    def get_delivery_header_outputs(self, delivery: str) -> list:
+    def get_delivery_header_outputs(self, delivery: str) -> Table:
+        """
+        Get the header output records for a given delivery.
+
+        Arguments:
+            delivery {str} -- Delivery document
+
+        Returns:
+            Table -- Returns a Table object of the output conditions of the delivery
+        """
         self.display_delivery(delivery=delivery)
         self.click_element(id="/app/con[0]/ses[0]/wnd[0]/mbar/menu[3]/menu[2]/menu[0]")
+        return self.dump_table_values(table_id="/app/con[0]/ses[0]/wnd[0]/usr/tblSAPDV70ATC_NAST3")
 
-    def fill_vl01n_initial_screen(self, shipping_point: str, sales_order: str, selection_date: Optional[str] = None) -> None:
+    def fill_vl01n_initial_screen(
+        self, 
+        shipping_point: str, 
+        sales_order: str, 
+        selection_date: Optional[str|None] = None,
+        from_so_item: Optional[str|None] = None,
+        to_so_item: Optional[str|None] = None, 
+        delivery_type: Optional[str|None] = None, 
+        enter_after_fill: Optional[bool] = True
+        ) -> None:
+        """
+        Fill in initial screen fields of the SAP transaction VL01N.
+
+        Arguments:
+            shipping_point {str} -- Originating shipping point of the outbound delivery
+            sales_order {str} -- Sales order in which the outbound delivery will be created
+
+        Keyword Arguments:
+            selection_date {Optional[str]} -- Selection date to use in considering sales order line items for delivery (default: {None})
+            from_so_item {Optional[str]} -- Starting sales order line item number to use in creating the outbound delivery (default: {None})
+            to_so_item {Optional[str]} -- Ending sales order line item number to use in creating the outbound delivery (default: {None})
+            delivery_type {Optional[str]} -- Delivery type of the outbound delivery to be created (default: {None})
+            enter_after_fill {Optional[bool]} -- Flag determining if enter should be pressed after filling the screen fields (default: {True})
+        """
         self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLIKP-VSTEL", text=shipping_point)
         self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLV50C-VBELN", text=sales_order)
         if selection_date is not None:
             self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLV50C-DATBI", text=selection_date)
-        self.enter()
+        if from_so_item is not None:
+            self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLV50C-ABPOS", text=from_so_item)
+        if to_so_item is not None:
+            self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLV50C-BIPOS", text=to_so_item)
+        if delivery_type is not None:
+            self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtLIKP-LFART", text=delivery_type)
+        if enter_after_fill:
+            self.enter()
     
     ## Selenium Web based functions
     web_keys = Keys
@@ -1748,6 +1875,17 @@ class Session:
         log_level: Optional[int] = 3,
         load_strategy: Optional[str] = "normal"
         ) -> None:
+        """
+        Creates a WebDriver object for the current session.
+        ***Currently only Google Chrome is supported***
+
+        Keyword Arguments:
+            browser {Optional[BrowserType]} -- Browser to use when creating the WebDriver object (default: {BrowserType.CHROME})
+            headless {Optional[bool]} -- If browser should be launched in headless mode (default: {False})
+            insecure_certs {Optional[bool]} -- If insecure certificates are accepted (default: {True})
+            log_level {Optional[int]} -- Log level for browsers internal logging option (default: {3})
+            load_strategy {Optional[str]} -- The contect loading strategy used by the browser during wait for element statements (default: {"normal"})
+        """
         options = None
         if browser == BrowserType.CHROME:
             options = webdriver.ChromeOptions()
@@ -1768,7 +1906,20 @@ class Session:
         self.web_main_window_handle = self.web_driver.current_window_handle
         self.web_driver.maximize_window()
     
-    def web_find_by_xpath(self, xpath: str, return_element: bool = False, wait_time: Optional[float] = None) -> Any:
+    def web_find_by_xpath(self, xpath: str, return_element: bool = False, wait_time: Optional[float] = None) -> WebElement|None:
+        """
+        Find web element by xpath
+
+        Arguments:
+            xpath {str} -- Full xpath of the element to find
+
+        Keyword Arguments:
+            return_element {bool} -- Boolean flag to control if web element is returned (default: {False})
+            wait_time {Optional[float]} -- Internal timeout in seconds (default: {None})
+
+        Returns:
+            WebElement|None -- Returns the WebElement object if return_element argument is True otherwise None
+        """
         __wait_time = wait_time if wait_time is not None else self.web_wait
         self.web_element = None
         try:
@@ -1779,6 +1930,18 @@ class Session:
             return self.web_element
     
     def web_get_value(self, xpath: str, wait_time: Optional[float] = None) -> str:
+        """
+        Get the value of a web element.
+
+        Arguments:
+            xpath {str} -- Full XPath of of the element to return the value. 
+
+        Keyword Arguments:
+            wait_time {Optional[float]} -- Internal timeout in seconds (default: {None})
+
+        Returns:
+            str -- Returns a string of the element's value
+        """
         __text = None
         try:
             self.web_find_by_xpath(xpath=xpath, wait_time=wait_time)
@@ -1791,10 +1954,30 @@ class Session:
         return __text
     
     def web_click_element(self, xpath: str, wait_time: Optional[float] = None) -> None:
+        """
+        Single left click web element.
+
+        Arguments:
+            xpath {str} -- Full XPath of of the element to click
+
+        Keyword Arguments:
+            wait_time {Optional[float]} -- Internal timeout in seconds (default: {None})
+        """
         self.web_find_by_xpath(xpath=xpath, wait_time=wait_time)
         self.web_driver.execute_script("arguments[0].click();", self.web_element)
     
     def web_wait_for_element(self, xpath: str, timeout: Optional[float] = 5.0, delay_time: Optional[float] = 1.0, wait_time: Optional[float] = None) -> None:
+        """
+        Wait for element to be displayed or for time out to elapse. 
+
+        Arguments:
+            xpath {str} -- Full XPath of the element to wait for
+
+        Keyword Arguments:
+            timeout {Optional[float]} -- Max time in seconds to wait (default: {5.0})
+            delay_time {Optional[float]} -- Delay time in seconds between rechecking if element is now displayed (default: {1.0})
+            wait_time {Optional[float]} -- Internal timeout in seconds (default: {None})
+        """
         t = Timer()
         while t.elapsed() <= timeout:
             self.web_find_by_xpath(xpath=xpath, wait_time=wait_time)
@@ -1807,11 +1990,24 @@ class Session:
                 continue
     
     def web_set_text(self, xpath: str, text: str) -> None:
+        """
+        Set the text of a web element.
+
+        Arguments:
+            xpath {str} -- Full XPath of the element where text is to be set
+            text {str} -- Text to set
+        """
         self.web_find_by_xpath(xpath=xpath)
         self.web_element.clear()
         self.web_element.send_keys(text)
     
     def web_set_iframe_active(self, xpath: str) -> None:
+        """
+        Set an iframe as the current active window. 
+
+        Arguments:
+            xpath {str} -- Full XPath of the iframe to activate
+        """
         self.iframe = None
         self.iframe = self.web_find_by_xpath(xpath=xpath, return_element=True)
         if self.iframe is not None:
@@ -1822,19 +2018,43 @@ class Session:
                 self.web_driver.switch_to.parent_frame()
     
     def web_set_iframe_inactive(self) -> None:
+        """
+        Set the currently active iframe as inactive and set the main window as active.
+        """
         self.web_driver.switch_to.parent_frame()
         self.web_iframe = None
     
     def web_set_zoom(self, zoom: int|float) -> None:
+        """
+        Set the zoom level of the browser. 
+
+        Arguments:
+            zoom {int | float} -- Zoom level
+        """
         self.web_driver.execute_script(f"document.body.style.zoom='{zoom}%'")
     
     def web_open_url(self, url: str) -> None:
+        """
+        Open the provided url in the browser.
+
+        Arguments:
+            url {str} -- URL to be opened
+        """
         self.web_driver.get(url)
     
     def web_enter(self, xpath: Optional[str] = None) -> None:
+        """
+        Send a virtual enter key press to the currently active browser window.
+
+        Keyword Arguments:
+            xpath {Optional[str]} -- The full XPath of the web element. (default: {None})
+        """
         if xpath is not None:
             self.web_find_by_xpath(xpath=xpath)
         self.web_element.send_keys(Keys.ENTER)
     
     def web_exit(self) -> None:
+        """
+        Exits the current web session and window.
+        """
         self.web_driver.close()

@@ -20,3 +20,6 @@ class ResultCase:
 class ResultStep:
     Result: Result = None
     Error: str = None
+    
+    def __repr__(self) -> str:
+        return f"class ResultStep<Result: {self.Result.value}, Error: {self.Error}>"

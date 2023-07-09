@@ -31,3 +31,26 @@ class Step:
     PyCode: Optional[str] = field(default_factory=str)
     
     Status: ResultStep = field(default_factory=default_status)
+    
+    def __repr__(self) -> str:
+        return f"""class Step<\
+        Name: {self.Name}, \
+        Description: {self.Description}, \
+        Action: {self.Action}, \
+        ElementId: {self.ElementId}, \
+        Args: {self.Args}, \
+        Kwargs: {self.Kwargs}, \
+        ApplicationServer: {self.ApplicationServer}, \
+        Language: {self.Language}, \
+        Program: {self.Program}, \
+        ResponseTime: {self.ResponseTime}, \
+        RoundTrips: {self.RoundTrips}, \
+        ScreenNumber: {self.ScreenNumber}, \
+        SystemName: {self.SystemName}, \
+        SystemNumber: {self.SystemNumber}, \
+        SystemSessionId: {self.SystemSessionId}, \
+        Transaction: {self.Transaction}, \
+        User: {self.User}, \
+        PyCode: {self.PyCode}, \
+        Status: {self.Status}\
+        >"""
