@@ -967,7 +967,28 @@ class Session:
                 else:
                     self.step_fail(msg=f"Unable to click element: {id}", ss_name="click_element_failed")
             except Exception as err:
-                self.handle_unknown_exception(msg=f"Unhandled exception while clicking element: {id}", ss_name="click_element_exception", error=err)
+                self.handle_unknown_exception(
+                    msg=f"Unhandled exception while clicking element: {id}", 
+                    ss_name="click_element_exception", 
+                    error=err)
+    
+    @explicit_wait_after(wait_time=__explicit_wait__)
+    def set_focus_of_element(self, id: str) -> None:
+        """
+        Set the focus on the element specified.
+
+        Arguments:
+            id {str} -- Id of the SAP GUI element to have focus set
+        """
+        self.new_step(action="set_focus_of_element", id=id)
+        if self.is_element(id):
+            try:
+                self.session.FindById(self.current_element).SetFocus()
+            except Exception as err:
+                self.handle_unknown_exception(
+                    msg=f"Unhandled exception while setting focus of element: {id}", 
+                    ss_name="set_focus_of_element_exception", 
+                    error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def click_toolbar_button(self, table_id: str, button_id: str) -> None:
