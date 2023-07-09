@@ -838,7 +838,7 @@ class Session:
 
         Arguments:
             id {str} -- SAP GUI element id of the vertical scrollbar
-            pos {int} -- Integer value to set the scroolbar position
+            pos {int} -- Integer value to set the scrollbar position
         """
         self.new_step(action="set_v_scrollbar", id=id, pos=pos)
         if self.is_element(id):
@@ -1423,6 +1423,13 @@ class Session:
     # Assertions
     @explicit_wait_after(wait_time=__explicit_wait__)
     def assert_element_value_equal(self, id: str, expected_value: str) -> None:
+        """
+        Assert that the value of the element is equal to the expected value.
+
+        Arguments:
+            id {str} -- Id of the element
+            expected_value {str} -- Expected value of the element
+        """
         if self.is_element(id):
             try:
                 if self.get_value(id=self.current_element.Id) == expected_value:
@@ -1450,6 +1457,13 @@ class Session:
     
     @explicit_wait_after(wait_time=__explicit_wait__)
     def assert_element_value_not_equal(self, id: str, expected_value: str) -> None:
+        """
+        Assert that the value of the element is not equal to the expected value.
+
+        Arguments:
+            id {str} -- Id of the element
+            expected_value {str} -- Expected value of the element
+        """
         if self.is_element(id):
             try:
                 if self.get_value(id=self.current_element.Id) != expected_value:
@@ -1477,6 +1491,12 @@ class Session:
     
     @explicit_wait_before(wait_time=__explicit_wait__)
     def assert_element_present(self, id: str) -> None:
+        """
+        Assert that the element is present.
+
+        Arguments:
+            id {str} -- Id of the element
+        """
         if self.is_element(id):
             self.step_pass(
                 msg=f"Assertion passed, element: {self.current_element.Id} is present.", 
@@ -1488,6 +1508,13 @@ class Session:
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def assert_element_changeable(self, id: str, expected: bool) -> None:
+        """
+        Assert that the element is changeable.
+
+        Arguments:
+            id {str} -- Id of the element
+            expected {bool} -- Expected boolean value (True/False) of the element
+        """
         if self.is_element(id):
             try:
                 if self.current_element.Changeable == expected:
@@ -1513,6 +1540,13 @@ class Session:
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def assert_element_value_contains(self, id: str, contains_value: str) -> None:
+        """
+        Assert that the value of the element contains the specified value.
+
+        Arguments:
+            id {str} -- Id of the element
+            contains_value {str} -- Value to be contained in the value of the element
+        """
         if self.is_element(id):
             try:
                 if contains_value in self.get_value(id=self.current_element.Id):
@@ -1549,6 +1583,9 @@ class Session:
     
     @explicit_wait_after(wait_time=__explicit_wait__)
     def assert_success_status(self) -> None:
+        """
+        Assert the current status of the status bar is equal to success.
+        """
         try:
             if self.sbar.MessageType == "S":
                 self.step_pass(msg=f"Status is success", ss_name="assert_success_status_pass")
@@ -1564,6 +1601,12 @@ class Session:
     
     @explicit_wait_after(wait_time=__explicit_wait__)
     def assert_status(self, status: str) -> None:
+        """
+        Assert the current status of the status bar is equal to the specified value.
+
+        Arguments:
+            status {str} -- Status to confirm the status bar value against
+        """
         try:
             if self.sbar.MessageType == status:
                 self.step_pass(msg=f"Status is success", ss_name="assert_success_status_pass")
@@ -1601,6 +1644,15 @@ class Session:
     # Compound functions
     ## Tables
     def dump_table_values(self, table_id: str) -> Table:
+        """
+        Dump the cell values of a GuiTable object.
+
+        Arguments:
+            table_id {str} -- Id of the table element
+
+        Returns:
+            Table -- Returned instance of the Table class containing the GuiTable's values
+        """
         __table = self.session.FindById(table_id)
         if __table.Type == "GuiTableControl":
             my_table = Table(
@@ -1643,7 +1695,16 @@ class Session:
     
     # Get Table Data
     def get_table_data(self, statement: str) -> Table:
-        fields, max_rows, table, conditions = self.select_parse(statement)
+        """
+        Gets the data returned by the specified statement using transaction SE16.
+
+        Arguments:
+            statement {str} -- A SQL like select statement 
+
+        Returns:
+            Table -- Returned instance of the Table class containing the values returned values from transaction SE16
+        """
+        fields, max_rows, table, conditions = self.parse_sql_select(statement)
         self.start_transaction(transaction="SE16")
         
         # Set table
@@ -1685,6 +1746,9 @@ class Session:
     
     ## Sales Orders
     def availability_control(self) -> None:
+        """
+        Handles confirming availability control during order entry.
+        """
         if self.is_element("usr/btnBUT3"):
             try:
                 if "availability" in self.titl.Text.lower():
