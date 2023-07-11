@@ -1670,12 +1670,15 @@ class Session:
 
     # Compound functions
     ## Tables
-    def dump_table_values(self, table_id: str) -> Table:
+    def dump_table_values(self, table_id: str, number_rows: Optional[int] = None) -> Table:
         """
         Dump the cell values of a GuiTable object.
 
         Arguments:
             table_id {str} -- Id of the table element
+
+        Keyword Arguments:
+            number_rows {Optional[int]} -- Number of rows to return, default is All (default: {None})
 
         Returns:
             Table -- Returned instance of the Table class containing the GuiTable's values
@@ -1713,11 +1716,23 @@ class Session:
                     Rows = [],
                     Data = []
                 )
-                for row in range(0, __table.RowCount):
-                    cells = {}
-                    for cell in range(0, __table.ColumnCount):
-                        cells[__column_order[cell]] = __table.GetCellValue(row, __column_order[cell])
-                    my_table.Data.append(cells)
+                if number_rows is not None:
+                    scroll_position: int = 1
+                    vbar: win32com.client.CDispatch|None = self.usr.VerticalScrollbar
+                    for row in range(0, number_rows):
+                        if row > __table.VisibleRowCount * scroll_position:
+                            scroll_position += 1
+                            self.set_v_scrollbar(id=vbar.Id, pos=scroll_position)
+                        cells = {}
+                        for cell in range(0, __table.ColumnCount):
+                            cells[__column_order[cell]] = __table.GetCellValue(row, __column_order[cell])
+                        my_table.Data.append(cells)
+                else:
+                    for row in range(0, __table.RowCount):
+                        cells = {}
+                        for cell in range(0, __table.ColumnCount):
+                            cells[__column_order[cell]] = __table.GetCellValue(row, __column_order[cell])
+                        my_table.Data.append(cells)
                 return my_table
     
     # Get Table Data
