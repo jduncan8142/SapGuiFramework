@@ -1203,10 +1203,16 @@ class Session:
         if self.is_element(id):
             try:
                 if self.current_element.Type in [i.value for i in TextElements]:
-                    self.current_element.Text = text
-                    self.step_pass(
-                        msg=f"Successfully entered: {text} in: {self.current_element.Id}", 
-                        ss_name="set_text_pass")
+                    if self.current_element.Changeable:
+                        self.current_element.Text = text
+                        self.step_pass(
+                            msg=f"Successfully entered: {text} in: {self.current_element.Id}", 
+                            ss_name="set_text_pass")
+                    else:
+                        self.step_fail(
+                            msg=f"Unable to set text of element: {self.current_element.Id} as it is not changeable",
+                            ss_name="set_text_fail", 
+                            error=None)
             except Exception as err:
                 self.handle_unknown_exception(
                     msg=f"Unhandled exception while entering: {text} in: {self.current_element.Id}",
