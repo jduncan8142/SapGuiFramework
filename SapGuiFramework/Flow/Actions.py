@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Callable, Any
 from Flow.Results import ResultStep
 
 
@@ -8,7 +8,7 @@ class Step:
     def default_status() -> ResultStep:
         return ResultStep()
     
-    Action: str
+    Action: Callable|None = None
     ElementId: str = field(default_factory=str)
     Args: list = field(default_factory=list)
     Kwargs: dict = field(default_factory=dict)
@@ -54,3 +54,7 @@ class Step:
         PyCode: {self.PyCode}, \
         Status: {self.Status}\
         >"""
+    
+    def run(self) -> Any:
+        if isinstance(self.Action, Callable):
+            self.Action(*self.Args, **self.Kwargs)

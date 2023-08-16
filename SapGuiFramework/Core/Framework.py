@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
-from typing import Any, Optional
+from typing import Any, Optional, Callable
 import win32com.client
-from Flow.Data import Case, TextElements, VKEYS, Table, BrowserType
+from Flow.Data import Case, load_case_from_json_file, TextElements, VKEYS, Table, BrowserType, CaseTypes
 from Flow.Results import Result
 from Flow.Actions import Step
 from Logging.Logging import Logger, LoggingConfig
@@ -12,7 +12,6 @@ import atexit
 import base64
 import datetime
 import re
-import json
 import os
 from selenium import webdriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -24,27 +23,42 @@ import chromedriver_binary
 
 
 class Session:
-    __version__: str = "0.1.4"
+    __version__: str = "0.1.5"
     __explicit_wait__: float = 0.0
+    __explicit_wait_web__: float = 0.0
     
-    def __init__(self) -> None:
+    def __init__(self, case: Optional[Case] = None, json_data: Optional[str] = None) -> None:
         """
+        Initialize Session object.
         1. Load any available .env file
-        2. Create Case instance 
+        2. Create & load Case instance, if case is None & json_data is None, 
+            the default Case is used
         3. Create Logger instance
         4. Set global __explicit_wait__ variable 
         5. Create Session variables and set defaults
         6. Register Session.cleanup function so it is called on exit
+
+        Keyword Arguments:
+            case {Optional[Case]} -- Provide a specific Case object (default: {None})
+            json_data {Optional[str]} -- Provide a string of a path to a json data file to 
+                                            be loaded (default: {None})
         """
         load_dotenv()
-        self.case: Case = Case()
+        self.case: Case = None
+        if case is not None:
+            self.case = case
+        elif json_data is not None:
+            if self.case is None:
+                self.case = load_case_from_json_file(data_file=json_data)
+            elif isinstance(self.case, Case):
+                self.case = load_case_from_json_file(data_file=json_data, case=self.case)
+        else:
+            self.case = Case()
         self.logger: Logger|None = None
-        self.logger = Logger(config=self.case.LogConfig)
-        Session.__explicit_wait__ = self.case.ExplicitWait
         self.web_driver: webdriver|None = None
         self.web_element: WebElement|None = None
         self.web_iframe: WebElement|None = None
-        self.web_wait: float = float(os.getenv("HTML_WAIT", "3.0"))
+        self.web_wait: float|None = None
         self.__connection_number: int = 0
         self.__session_number: int = 0
         self.__window_number: int = 0
@@ -63,21 +77,45 @@ class Session:
         self.sbar: win32com.client.CDispatch|None = None
         self.current_element: win32com.client.CDispatch|None = None
         self.current_transaction: str|None = None
-        self.current_step: Step|None = None
+        self.current_step: Step|None = self.case.Steps.pop(0) if len(self.case.Steps) != 0 else None
         atexit.register(self.cleanup)
     
     def __post_init__(self) -> None:
         """
         Post init function of Session class. 
-        If user did not pass in a class<Step> object for Session.current_step, create a new initial step object with default values.
+        
+        Load Case values.
+        
+        If user did not pass in a class<Step> object for Session.current_step, 
+        create a new initial step object with default values.
         """
+        self.logger = Logger(config=self.case.LogConfig)
+        match self.case.CaseType:
+            case CaseTypes.GUI:
+                Session.__explicit_wait__ = self.case.ExplicitWait
+            case CaseTypes.WEB:
+                Session.__explicit_wait_web__ = self.case.WebWait
+                self.web_wait = self.case.WebWait
+            case _:
+                pass
         if self.current_step is None:
             self.current_step = Step(
-                Action="Create Session", 
+                Action=None, 
                 ElementId="", 
                 Args=[],
+                Kwargs={},
                 Name="Create New Session", 
                 Description="Creates and return a new SAP session object.")
+            if isinstance(self.case.System, str):
+                    self.open_connection(connection_name=self.case.System)
+        else:
+            # TODO: Implement auto run steps if they are included in the case object.
+            self.run_steps()
+    
+    def run_steps(self) -> None:
+        while len(self.case.Steps) > 0:
+            __result = self.current_step.run()
+            self.current_step = self.case.Steps.pop(0)
     
     # Screenshot Actions
     def hard_copy(self, filename: str, image_type: Optional[str] = "PNG", pos: Optional[tuple[int, int, int, int]] = None) -> bytes|None:
@@ -605,33 +643,33 @@ class Session:
         except Exception as err:
             self.logger.log.warning(msg=f"Unhandled exception while collecting case metadata|{err}")
     
-    def load_case_from_json_file(self, data_file: str) -> dict:
-        """
-        Load test case data from a json file
+    # def load_case_from_json_file(self, data_file: str) -> dict:
+    #     """
+    #     Load test case data from a json file
 
-        Arguments:
-            data_file {str} -- Path the json data file.
+    #     Arguments:
+    #         data_file {str} -- Path the json data file.
 
-        Returns:
-            dict -- Returns a python dictionary of the parsed json data.
-        """
-        __data: dict = json.load(open(data_file, "rb"))
-        self.case.Name = __data.get("case_name", f"test_{datetime.datetime.now().strftime('%m%d%Y_%H%M%S')}")
-        self.case.Description = __data.get("description", "")
-        self.case.BusinessProcessOwner = __data.get("business_owner", "Business Process Owner")
-        self.case.ITOwner = __data.get("it_owner", "Technical Owner")
-        self.case.DocumentationLink = __data.get("doc_link", "")
-        self.case.CasePath = __data.get("case_path", "")
-        self.case.DateFormat = __data.get("date_format", "%m/%d/%Y")
-        self.case.ExplicitWait = __data.get("explicit_wait", 0.25)
-        self.case.ScreenShotOnPass = __data.get("screenshot_on_pass", False)
-        self.case.ScreenShotOnFail = __data.get("screenshot_on_fail", False)
-        self.case.FailOnError = __data.get('fail_on_error', True)
-        self.case.ExitOnFail = __data.get("exit_on_fail", True)
-        self.case.CloseSAPOnCleanup = __data.get("close_sap_on_cleanup", True)
-        self.case.System = __data.get("system", "")
-        self.case.Data = __data
-        return self.case.Data
+    #     Returns:
+    #         dict -- Returns a python dictionary of the parsed json data.
+    #     """
+    #     __data: dict = json.load(open(data_file, "rb"))
+    #     self.case.Name = __data.get("case_name", f"test_{datetime.datetime.now().strftime('%m%d%Y_%H%M%S')}")
+    #     self.case.Description = __data.get("description", "")
+    #     self.case.BusinessProcessOwner = __data.get("business_owner", "Business Process Owner")
+    #     self.case.ITOwner = __data.get("it_owner", "Technical Owner")
+    #     self.case.DocumentationLink = __data.get("doc_link", "")
+    #     self.case.CasePath = __data.get("case_path", "")
+    #     self.case.DateFormat = __data.get("date_format", "%m/%d/%Y")
+    #     self.case.ExplicitWait = __data.get("explicit_wait", 0.25)
+    #     self.case.ScreenShotOnPass = __data.get("screenshot_on_pass", False)
+    #     self.case.ScreenShotOnFail = __data.get("screenshot_on_fail", False)
+    #     self.case.FailOnError = __data.get('fail_on_error', True)
+    #     self.case.ExitOnFail = __data.get("exit_on_fail", True)
+    #     self.case.CloseSAPOnCleanup = __data.get("close_sap_on_cleanup", True)
+    #     self.case.System = __data.get("system", "")
+    #     self.case.Data = __data
+    #     return self.case.Data
     
     # Connection Actions
     def open_connection(self, connection_name: str) -> None:

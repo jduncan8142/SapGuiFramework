@@ -8,6 +8,14 @@ from Core.Utilities import get_main_dir
 from Flow.Actions import Step
 from Flow.Results import ResultCase
 from Logging.Logging import LoggingConfig
+from dotenv import load_dotenv
+import json
+import os
+
+
+class CaseTypes(Enum):
+    GUI = auto()
+    WEB = auto()
 
 
 @dataclass
@@ -106,16 +114,26 @@ class Case:
     
     def default_result() -> ResultCase:
         return ResultCase()
+
+    def default_case_type() -> CaseTypes:
+        return CaseTypes.GUI
+    
+    def default_web_wait() -> float:
+        return 1.0
     
     Name: str = field(default_factory=default_name)
     Description: str = field(default_factory=str)
     BusinessProcessOwner: str = field(default_factory=default_business_process_owner)
     ITOwner: str = field(default_factory=default_it_owner)
     DocumentationLink: str = field(default_factory=str)
-    CasePath: Path = field(default_factory=get_main_dir)
+    
+    CasePath: Path|str = field(default_factory=get_main_dir)
     LogConfig: LoggingConfig = field(default_factory=default_log_config)
     DateFormat: str = field(default_factory=default_date_format)
     ExplicitWait: float = field(default_factory=default_explicit_wait)
+    CaseType: CaseTypes = field(default_factory=default_case_type)
+    
+    WebWait: float = field(default_factory=default_web_wait)
     
     ScreenShotOnPass: bool = False
     ScreenShotOnFail: bool = False
@@ -123,15 +141,165 @@ class Case:
     ExitOnFail: bool = True
     CloseSAPOnCleanup: bool = True
     
-    System: str | dict = field(default_factory=str)
+    System: str | list[dict] = field(default_factory=str)
     Steps: list[Step] = field(default_factory=list)
-    Data: Optional[object] = None
+    Data: dict = field(default_factory=dict)
     Status: ResultCase = field(default_factory=default_result)
     
     SapMajorVersion: Optional[int] = None
     SapMinorVersion: Optional[int] = None
     SapPatchLevel: Optional[int] = None
     SapRevision: Optional[int] = None
+
+
+def load_case_from_excel_file(excel_file: str|Path, case: Optional[Case] = None) -> Case:
+    """
+    Load test case data from a excel file. If a value does not exist in the excel file
+    attempt to get it from the environment variable or load the default value.
+
+    Arguments:
+        data_file {str|Path} -- Path the excel data file
+
+    Keyword Arguments:
+        case {Optional[Case]} -- An existing Case object that will be updated 
+                                from the loaded excel file (default: {None})
+
+    Returns:
+        Case -- Return the updated Case object.
+    """
+    raise NotImplementedError
+    __data: dict = None
+    # Load excel here and create data dict
+    return load_case(data=__data, case=case)
+
+
+def load_case_from_json_file(data_file: str, case: Optional[Case] = None) -> Case:
+    """
+    Load test case data from a json file. If a value does not exist in the json
+    attempt to get it from the environment variable or load the default value.
+
+    Arguments:
+        data_file {str} -- Path the json data file
+
+    Keyword Arguments:
+        case {Optional[Case]} -- An existing Case object that will be updated 
+                                from the loaded json file (default: {None})
+
+    Returns:
+        Case -- Return the updated Case object.
+    """
+    __data: dict = json.load(open(data_file, "rb"))
+    return load_case(data=__data, case=case)
+
+
+def load_case(data: dict, case: Case) -> Case:
+    """
+    Load test case data from dict. If a value does not exist in the dict
+    attempt to get it from an environment variable or load the default value.
+
+    Arguments:
+        data {dict} -- dict of data values
+        case {Case} -- An existing Case object that will be updated 
+                        from the loaded data dict
+
+    Returns:
+        Case -- Return the updated Case object.
+    """
+    load_dotenv()
+    _case = case if case is not None else Case()
+    __data: dict = data
+    if "case_name" in __data:
+        _case.Name = __data.get("case_name")
+    elif "case_name" in os.environ:
+        _case.Name = os.getenv(os.getenv("case_name"))
+    else:
+        _case.Name = f"test_{datetime.datetime.now().strftime('%m%d%Y_%H%M%S')}"
+    if "description" in __data:
+        _case.Description = __data.get("description")
+    elif "description" in os.environ:
+        _case.Description = os.getenv(os.getenv("description"))
+    else:
+        _case.Description = ""
+    if "business_owner" in __data:
+        _case.BusinessProcessOwner = __data.get("business_owner")
+    elif "business_owner" in os.environ:
+        _case.BusinessProcessOwner = os.getenv(os.getenv("business_owner"))
+    else:
+        _case.BusinessProcessOwner = "Business Process Owner"
+    if "it_owner" in __data:
+        _case.ITOwner = __data.get("it_owner")
+    elif "it_owner" in os.environ:
+        _case.ITOwner = os.getenv(os.getenv("it_owner"))
+    else:
+        _case.ITOwner = "Technical Owner"
+    if "doc_link" in __data:
+        _case.DocumentationLink = __data.get("doc_link")
+    elif "doc_link" in os.environ:
+        _case.DocumentationLink = os.getenv(os.getenv("doc_link"))
+    else:
+        _case.DocumentationLink = ""
+    if "case_path" in __data:
+        _case.CasePath = __data.get("case_path")
+    elif "case_path" in os.environ:
+        _case.CasePath = os.getenv(os.getenv("case_path"))
+    else:
+        _case.CasePath = ""
+    if "date_format" in __data:
+        _case.DateFormat = __data.get("date_format")
+    elif "date_format" in os.environ:
+        _case.DateFormat = os.getenv(os.getenv("date_format"))
+    else:
+        _case.DateFormat = "%m/%d/%Y"
+    if "explicit_wait" in __data:
+        _case.ExplicitWait = __data.get("explicit_wait")
+    elif "explicit_wait" in os.environ:
+        _case.ExplicitWait = os.getenv(os.getenv("explicit_wait"))
+    else:
+        _case.ExplicitWait = 0.25
+    if "web_wait" in __data:
+        _case.WebWait = __data.get("web_wait")
+    elif "explicit_wait" in os.environ:
+        _case.WebWait = os.getenv(os.getenv("web_wait"))
+    else:
+        _case.WebWait = 1.0
+    if "screenshot_on_pass" in __data:
+        _case.ScreenShotOnPass = __data.get("screenshot_on_pass")
+    elif "screenshot_on_pass" in os.environ:
+        _case.ScreenShotOnPass = os.getenv(os.getenv("screenshot_on_pass"))
+    else:
+        _case.ScreenShotOnPass = False
+    if "screenshot_on_fail" in __data:
+        _case.ScreenShotOnFail = __data.get("screenshot_on_fail")
+    elif "screenshot_on_fail" in os.environ:
+        _case.ScreenShotOnFail = os.getenv(os.getenv("screenshot_on_fail"))
+    else:
+        _case.ScreenShotOnFail = False
+    if "fail_on_error" in __data:
+        _case.FailOnError = __data.get("fail_on_error")
+    elif "fail_on_error" in os.environ:
+        _case.FailOnError = os.getenv(os.getenv("fail_on_error"))
+    else:
+        _case.FailOnError = True
+    if "exit_on_fail" in __data:
+        _case.ExitOnFail = __data.get("exit_on_fail")
+    elif "exit_on_fail" in os.environ:
+        _case.ExitOnFail = os.getenv(os.getenv("exit_on_fail"))
+    else:
+        _case.ExitOnFail = True
+    if "close_sap_on_cleanup" in __data:
+        _case.CloseSAPOnCleanup = __data.get("close_sap_on_cleanup")
+    elif "close_sap_on_cleanup" in os.environ:
+        _case.CloseSAPOnCleanup = os.getenv(os.getenv("close_sap_on_cleanup"))
+    else:
+        _case.CloseSAPOnCleanup = True
+    if "system" in __data:
+        _case.System = __data.get("system")
+    elif "system" in os.environ:
+        _case.System = os.getenv(os.getenv("system"))
+    else:
+        _case.System = ""
+    _case.Data = __data
+    return _case
 
 
 VKEYS = ["ENTER", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
@@ -159,16 +327,16 @@ class Strings:
 
 
 class TextElements(Enum):
-    GuiTextField = "GuiTextField"
-    GuiCTextField = "GuiCTextField"
-    GuiPasswordField = "GuiPasswordField"
-    GuiLabel = "GuiLabel"
-    GuiTitlebar = "GuiTitlebar"
-    GuiStatusbar = "GuiStatusbar"
-    GuiButton = "GuiButton"
-    GuiTab = "GuiTab"
-    GuiShell = "GuiShell"
-    GuiStatusPane = "GuiStatusPane"
+    GuiTextField = auto()
+    GuiCTextField = auto()
+    GuiPasswordField = auto()
+    GuiLabel = auto()
+    GuiTitlebar = auto()
+    GuiStatusbar = auto()
+    GuiButton = auto()
+    GuiTab = auto()
+    GuiShell = auto()
+    GuiStatusPane = auto()
 
 
 class BrowserType(Enum):
