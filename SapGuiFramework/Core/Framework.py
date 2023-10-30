@@ -1,29 +1,28 @@
-from dotenv import load_dotenv
-from typing import Any, Optional, Callable
+from dotenv import load_dotenv  # type: ignore
+from typing import Any, Optional
 import win32com.client
 from Flow.Data import Case, load_case_from_json_file, TextElements, VKEYS, Table, BrowserType, CaseTypes
 from Flow.Results import Result
 from Flow.Actions import Step
 from Logging.Logging import Logger, LoggingConfig
-from Core.Utilities import *
-from Core.SAP import *
+from Core.Utilities import explicit_wait_before, explicit_wait_after, Timer
 from time import sleep
 import atexit
 import base64
 import datetime
 import re
 import os
-from selenium import webdriver
-from selenium.webdriver.remote.webelement import WebElement
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.by import By
-import chromedriver_binary
+import sys
+from pathlib import Path
+from selenium import webdriver  # type: ignore
+from selenium.webdriver.remote.webelement import WebElement  # type: ignore
+from selenium.webdriver.support.ui import WebDriverWait  # type: ignore
+from selenium.webdriver.common.keys import Keys  # type: ignore
+from selenium.webdriver.common.by import By  # type: ignore
 
 
 class Session:
-    __version__: str = "0.1.5"
+    __version__: str = "0.1.6"
     __explicit_wait__: float = 0.0
     __explicit_wait_web__: float = 0.0
     
@@ -277,7 +276,7 @@ class Session:
             self.connection.closeSession(self.ace_id())
             self.connection.closeConnection()
             self.step_pass(
-                msg=f"Successfully exited session.", 
+                msg="Successfully exited session.", 
                 ss_name="exit_pass")
         except Exception as err:
             self.handle_unknown_exception(
@@ -312,7 +311,7 @@ class Session:
             seconds {float} -- Number of seconds to wait
         """
         if seconds == 1.0:
-            self.documentation(f"Waiting 1 second...")
+            self.documentation("Waiting 1 second...")
         else:
             self.documentation(f"Waiting {seconds} seconds...")
         sleep(seconds)
@@ -396,30 +395,57 @@ class Session:
             str -- Full SAP GUI element id
         """
         base_id: str = f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.__window_number}]"
-        if id in ("",  " ", None):
-            return base_id
-        elif id.startswith("usr"):
-            return f"{base_id}/{id}"
-        elif id.startswith("/usr"):
-            return f"{base_id}{id}"
-        elif id.startswith("wnd"):
-            return f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/{id}"
-        elif id.startswith("/wnd"):
-            return f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]{id}"
-        elif id.startswith("ses"):
-            return f"/app/con[{self.__connection_number}]/{id}"
-        elif id.startswith("/ses"):
-            return f"/app/con[{self.__connection_number}]{id}"
-        elif id.startswith("con"):
-            return f"/app/{id}"
-        elif id.startswith("/con"):
-            return f"/app{id}"
-        elif id.startswith("app"):
-            return f"/{id}"
-        elif id.startswith("/app"):
-            return id
-        else:
-            return id
+        match id:
+            case ("",  " ", None):
+                return base_id
+            case id.startswith("usr"):
+                return f"{base_id}/{id}"
+            case id.startswith("/usr"):
+                return f"{base_id}{id}"
+            case id.startswith("wnd"):
+                return f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/{id}"
+            case id.startswith("/wnd"):
+                return f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]{id}"
+            case id.startswith("ses"):
+                return f"/app/con[{self.__connection_number}]/{id}"
+            case id.startswith("/ses"):
+                return f"/app/con[{self.__connection_number}]{id}"
+            case id.startswith("con"):
+                return f"/app/{id}"
+            case id.startswith("/con"):
+                return f"/app{id}"
+            case id.startswith("app"):
+                return f"/{id}"
+            case id.startswith("/app"):
+                return id
+            case _:
+                return id
+        
+        # base_id: str = f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/wnd[{self.__window_number}]"
+        # if id in ("",  " ", None):
+        #     return base_id
+        # elif id.startswith("usr"):
+        #     return f"{base_id}/{id}"
+        # elif id.startswith("/usr"):
+        #     return f"{base_id}{id}"
+        # elif id.startswith("wnd"):
+        #     return f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]/{id}"
+        # elif id.startswith("/wnd"):
+        #     return f"/app/con[{self.__connection_number}]/ses[{self.__session_number}]{id}"
+        # elif id.startswith("ses"):
+        #     return f"/app/con[{self.__connection_number}]/{id}"
+        # elif id.startswith("/ses"):
+        #     return f"/app/con[{self.__connection_number}]{id}"
+        # elif id.startswith("con"):
+        #     return f"/app/{id}"
+        # elif id.startswith("/con"):
+        #     return f"/app{id}"
+        # elif id.startswith("app"):
+        #     return f"/{id}"
+        # elif id.startswith("/app"):
+        #     return id
+        # else:
+        #     return id
     
     def documentation(self, msg: Optional[str] = None) -> None:
         """
@@ -787,7 +813,7 @@ class Session:
             modal_window = self.session.ActiveWindow
         except Exception as err:
             self.handle_unknown_exception(
-                f"Unable to check for popup.", 
+                "Unable to check for popup.", 
                 ss_name="check_for_modal_exception", 
                 error=err)
         if modal_window is not None:
@@ -926,7 +952,7 @@ class Session:
 
         Arguments:
             id {str} -- SAP GUI element id of the horizontal scrollbar
-            pos {int} -- Integer value to set the scroolbar position
+            pos {int} -- Integer value to set the scrollbar position
         """
         self.new_step(action="set_h_scrollbar", id=id, pos=pos)
         if self.is_element(id):
@@ -1293,9 +1319,9 @@ class Session:
             try:
                 if self.current_element.Type == "GuiCheckBox":
                     self.current_element.selected = state
-                    self.step_pass(msg=f"", ss_name="set_checkbox_pass")
+                    self.step_pass(msg="", ss_name="set_checkbox_pass")
                 else:
-                    self.step_fail(msg=f"", ss_name="set_checkbox_fail")
+                    self.step_fail(msg="", ss_name="set_checkbox_fail")
             except Exception as err:
                 self.handle_unknown_exception(
                     msg=f"Unhandled exception while selecting checkbox: {self.current_element.Id} in: {self.current_element.Id}",
@@ -1303,9 +1329,8 @@ class Session:
                     error=err)
         else:
             self.handle_unknown_exception(
-                msg=f"Unhandled exception while selecting element: {self.current_element.Id}",
-                ss_name="set_checkbox_exception",
-                error=err)
+                msg=f"SAP GUI element: {self.current_element.Id} not found.",
+                ss_name="set_checkbox_not_found")
 
     # Buttons & Keys
     @explicit_wait_after(wait_time=__explicit_wait__)
@@ -1355,10 +1380,10 @@ class Session:
         self.new_step(action="enter")
         try:
             self.send_vkey(vkey="ENTER")
-            self.step_pass(msg=f"Successfully sent ENTER.", ss_name="enter_pass")
+            self.step_pass(msg="Successfully sent ENTER.", ss_name="enter_pass")
         except Exception as err:
             self.handle_unknown_exception(
-                    msg=f"Unhandled exception sending ENTER.",
+                    msg="Unhandled exception sending ENTER.",
                     ss_name="enter_exception",
                     error=err)
 
@@ -1370,10 +1395,10 @@ class Session:
         self.new_step(action="save")
         try:
             self.send_vkey(vkey="CTRL+S")
-            self.step_pass(msg=f"Successfully sent SAVE.", ss_name="save_pass")
+            self.step_pass(msg="Successfully sent SAVE.", ss_name="save_pass")
         except Exception as err:
             self.handle_unknown_exception(
-                    msg=f"Unhandled exception sending SAVE.",
+                    msg="Unhandled exception sending SAVE.",
                     ss_name="save_exception",
                     error=err)
 
@@ -1385,9 +1410,9 @@ class Session:
         self.new_step(action="back")
         try:
             self.send_vkey(vkey="F3")
-            self.step_pass(msg=f"Successfully sent BACK.", ss_name="back_pass")
+            self.step_pass(msg="Successfully sent BACK.", ss_name="back_pass")
         except Exception as err:
-            self.handle_unknown_exception(msg=f"Unhandled exception sending BACK.", ss_name="back_exception", error=err)
+            self.handle_unknown_exception(msg="Unhandled exception sending BACK.", ss_name="back_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def f8(self) -> None:
@@ -1397,9 +1422,9 @@ class Session:
         self.new_step(action="f8")
         try:
             self.send_vkey(vkey="F8")
-            self.step_pass(msg=f"Successfully sent F8.", ss_name="f8_pass")
+            self.step_pass(msg="Successfully sent F8.", ss_name="f8_pass")
         except Exception as err:
-            self.handle_unknown_exception(msg=f"Unhandled exception sending F8.", ss_name="f8_exception", error=err)
+            self.handle_unknown_exception(msg="Unhandled exception sending F8.", ss_name="f8_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def f5(self) -> None:
@@ -1409,9 +1434,9 @@ class Session:
         self.new_step(action="f5")
         try:
             self.send_vkey(vkey="F5")
-            self.step_pass(msg=f"Successfully sent F5.", ss_name="f5_pass")
+            self.step_pass(msg="Successfully sent F5.", ss_name="f5_pass")
         except Exception as err:
-            self.handle_unknown_exception(msg=f"Unhandled exception sending F5.", ss_name="f5_exception", error=err)
+            self.handle_unknown_exception(msg="Unhandled exception sending F5.", ss_name="f5_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def f6(self) -> None:
@@ -1421,9 +1446,9 @@ class Session:
         self.new_step(action="f6")
         try:
             self.send_vkey(vkey="F6")
-            self.step_pass(msg=f"Successfully sent F6.", ss_name="f6_pass")
+            self.step_pass(msg="Successfully sent F6.", ss_name="f6_pass")
         except Exception as err:
-            self.handle_unknown_exception(msg=f"Unhandled exception sending F6.", ss_name="f6_exception", error=err)
+            self.handle_unknown_exception(msg="Unhandled exception sending F6.", ss_name="f6_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def f7(self) -> None:
@@ -1433,9 +1458,9 @@ class Session:
         self.new_step(action="f7")
         try:
             self.send_vkey(vkey="F7")
-            self.step_pass(msg=f"Successfully sent F7.", ss_name="f7_pass")
+            self.step_pass(msg="Successfully sent F7.", ss_name="f7_pass")
         except Exception as err:
-            self.handle_unknown_exception(msg=f"Unhandled exception sending F7.", ss_name="f7_exception", error=err)
+            self.handle_unknown_exception(msg="Unhandled exception sending F7.", ss_name="f7_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def f4(self) -> None:
@@ -1445,9 +1470,9 @@ class Session:
         self.new_step(action="f4")
         try:
             self.send_vkey(vkey="F4")
-            self.step_pass(msg=f"Successfully sent F4.", ss_name="f4_pass")
+            self.step_pass(msg="Successfully sent F4.", ss_name="f4_pass")
         except Exception as err:
-            self.handle_unknown_exception(msg=f"Unhandled exception sending F4.", ss_name="f4_exception", error=err)
+            self.handle_unknown_exception(msg="Unhandled exception sending F4.", ss_name="f4_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def f3(self) -> None:
@@ -1457,9 +1482,9 @@ class Session:
         self.new_step(action="f3")
         try:
             self.send_vkey(vkey="F3")
-            self.step_pass(msg=f"Successfully sent F3.", ss_name="f3_pass")
+            self.step_pass(msg="Successfully sent F3.", ss_name="f3_pass")
         except Exception as err:
-            self.handle_unknown_exception(msg=f"Unhandled exception sending F3.", ss_name="f3_exception", error=err)
+            self.handle_unknown_exception(msg="Unhandled exception sending F3.", ss_name="f3_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def f2(self) -> None:
@@ -1469,9 +1494,9 @@ class Session:
         self.new_step(action="f2")
         try:
             self.send_vkey(vkey="F2")
-            self.step_pass(msg=f"Successfully sent F2.", ss_name="f2_pass")
+            self.step_pass(msg="Successfully sent F2.", ss_name="f2_pass")
         except Exception as err:
-            self.handle_unknown_exception(msg=f"Unhandled exception sending F2.", ss_name="f2_exception", error=err)
+            self.handle_unknown_exception(msg="Unhandled exception sending F2.", ss_name="f2_exception", error=err)
 
     @explicit_wait_after(wait_time=__explicit_wait__)
     def f1(self) -> None:
@@ -1481,9 +1506,9 @@ class Session:
         self.new_step(action="f1")
         try:
             self.send_vkey(vkey="F1")
-            self.step_pass(msg=f"Successfully sent F1.", ss_name="f1_pass")
+            self.step_pass(msg="Successfully sent F1.", ss_name="f1_pass")
         except Exception as err:
-            self.handle_unknown_exception(msg=f"Unhandled exception sending F1.", ss_name="f1_exception", error=err)
+            self.handle_unknown_exception(msg="Unhandled exception sending F1.", ss_name="f1_exception", error=err)
 
     # Assertions
     @explicit_wait_after(wait_time=__explicit_wait__)
@@ -1653,14 +1678,14 @@ class Session:
         """
         try:
             if self.sbar.MessageType == "S":
-                self.step_pass(msg=f"Status is success", ss_name="assert_success_status_pass")
+                self.step_pass(msg="Status is success", ss_name="assert_success_status_pass")
             else:
                 self.step_fail(
                     msg=f"Status is {self.sbar.MessageType} -- {self.sbar.Text}", 
                     ss_name="assert_success_status_fail")
         except Exception as err:
             self.handle_unknown_exception(
-                msg=f"Unhandled exception while asserting success status", 
+                msg="Unhandled exception while asserting success status", 
                 ss_name="assert_success_status_exception", 
                 error=err)
     
@@ -1674,14 +1699,14 @@ class Session:
         """
         try:
             if self.sbar.MessageType == status:
-                self.step_pass(msg=f"Status is success", ss_name="assert_success_status_pass")
+                self.step_pass(msg="Status is success", ss_name="assert_success_status_pass")
             else:
                 self.step_fail(
                     msg=f"Status is {self.sbar.MessageType} -- {self.sbar.Text}", 
                     ss_name="assert_success_status_fail")
         except Exception as err:
             self.handle_unknown_exception(
-                msg=f"Unhandled exception while asserting success status", 
+                msg="Unhandled exception while asserting success status", 
                 ss_name="assert_success_status_exception", 
                 error=err)
 
@@ -1805,7 +1830,7 @@ class Session:
             self.click_element(id="/app/con[0]/ses[0]/wnd[1]/usr/chk[2,6]")
             self.set_text(id="/app/con[0]/ses[0]/wnd[0]/usr/ctxtI1-LOW", text=condition[2])
             self.f2()
-            gv = self.session.FindById("/app/con[0]/ses[0]/wnd[1]/usr/cntlOPTION_CONTAINER/shellcont/shell")
+            _ = self.session.FindById("/app/con[0]/ses[0]/wnd[1]/usr/cntlOPTION_CONTAINER/shellcont/shell")
             # Set selection option
         
         # Set max rows to return
@@ -1838,7 +1863,7 @@ class Session:
                         self.logger.log.debug(f"Availability control error|{err2}")
             except Exception as err:
                 self.handle_unknown_exception(
-                    f"Unable to process availability control", 
+                    "Unable to process availability control", 
                     ss_name="availability_control_exception", 
                     error=err)
     
@@ -1888,7 +1913,7 @@ class Session:
         enter_after_fill: Optional[bool] = True
         ) -> None:
         """
-        Fill in transaction VA01 header data from sold-to, ship-to, customer reference, & cust. ref. date.
+        Fill in transaction VA01 header data from sold-to, ship-to, customer reference, & customer ref. date.
         Customer reference is required. If attribute is None then PO_{'%Y%m%d_%H%M%S'} is used.
 
         Keyword Arguments:
@@ -2028,7 +2053,7 @@ class Session:
             headless {Optional[bool]} -- If browser should be launched in headless mode (default: {False})
             insecure_certs {Optional[bool]} -- If insecure certificates are accepted (default: {True})
             log_level {Optional[int]} -- Log level for browsers internal logging option (default: {3})
-            load_strategy {Optional[str]} -- The contect loading strategy used by the browser during wait for element statements (default: {"normal"})
+            load_strategy {Optional[str]} -- The context loading strategy used by the browser during wait for element statements (default: {"normal"})
         """
         options = None
         if browser == BrowserType.CHROME:
@@ -2091,10 +2116,10 @@ class Session:
             self.web_find_by_xpath(xpath=xpath, wait_time=wait_time)
             try:
                 __text = self.web_element.text
-            except:
+            except AttributeError:
                 __text = self.web_element.get_attribute('value')
-        except:
-            self.documentation(f"Unable to get text from web element: {xpath}")
+        except Exception as e:
+            self.documentation(f"Error while getting text from web element: {xpath} -- {e}")
         return __text
     
     def web_click_element(self, xpath: str, wait_time: Optional[float] = None) -> None:
@@ -2131,6 +2156,7 @@ class Session:
                 else:
                     break
             except Exception as err:
+                self.logger.log.debug(f"Error while waiting for element: {xpath} -- {err}")
                 continue
     
     def web_set_text(self, xpath: str, text: str) -> None:
@@ -2157,7 +2183,8 @@ class Session:
         if self.iframe is not None:
             try:
                 self.web_driver.switch_to.frame(self.iframe)
-            except:
+            except Exception as err:
+                self.logger.log.debug(f"Error while switching to iframe: {xpath} -- {err}")
                 # Switch back to parent frame in case of error during child frame action
                 self.web_driver.switch_to.parent_frame()
     

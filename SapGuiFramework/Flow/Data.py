@@ -10,6 +10,7 @@ from Flow.Results import ResultCase
 from Logging.Logging import LoggingConfig
 from dotenv import load_dotenv
 import json
+from types import SimpleNamespace
 import os
 
 
@@ -103,12 +104,6 @@ class Case:
     def default_name() -> str:
         return f"test_{datetime.now().strftime('%m%d%Y_%H%M%S')}"
     
-    def default_business_process_owner() -> str:
-        return "Business Process Owner"
-    
-    def default_it_owner() -> str:
-        return "Technical Owner"
-    
     def default_log_config() -> LoggingConfig:
         return LoggingConfig()
     
@@ -123,8 +118,8 @@ class Case:
     
     Name: str = field(default_factory=default_name)
     Description: str = field(default_factory=str)
-    BusinessProcessOwner: str = field(default_factory=default_business_process_owner)
-    ITOwner: str = field(default_factory=default_it_owner)
+    BusinessProcessOwner: str = field(default_factory=str)
+    ITOwner: str = field(default_factory=str)
     DocumentationLink: str = field(default_factory=str)
     
     CasePath: Path|str = field(default_factory=get_main_dir)
@@ -141,7 +136,7 @@ class Case:
     ExitOnFail: bool = True
     CloseSAPOnCleanup: bool = True
     
-    System: str | list[dict] = field(default_factory=str)
+    Systems: dict = field(default_factory=dict)
     Steps: list[Step] = field(default_factory=list)
     Data: dict = field(default_factory=dict)
     Status: ResultCase = field(default_factory=default_result)
@@ -152,10 +147,9 @@ class Case:
     SapRevision: Optional[int] = None
 
 
-def load_case_from_excel_file(excel_file: str|Path, case: Optional[Case] = None) -> Case:
+def load_case_from_excel_file(excel_file: str|Path) -> Case:
     """
-    Load test case data from a excel file. If a value does not exist in the excel file
-    attempt to get it from the environment variable or load the default value.
+    Load test case data from a excel file.
 
     Arguments:
         data_file {str|Path} -- Path the excel data file
@@ -168,28 +162,26 @@ def load_case_from_excel_file(excel_file: str|Path, case: Optional[Case] = None)
         Case -- Return the updated Case object.
     """
     raise NotImplementedError
-    __data: dict = None
-    # Load excel here and create data dict
-    return load_case(data=__data, case=case)
 
 
-def load_case_from_json_file(data_file: str, case: Optional[Case] = None) -> Case:
+def load_case_from_json_file(data_file: str) -> Case:
     """
-    Load test case data from a json file. If a value does not exist in the json
-    attempt to get it from the environment variable or load the default value.
+    Load test case data from a json file.
 
     Arguments:
         data_file {str} -- Path the json data file
 
-    Keyword Arguments:
-        case {Optional[Case]} -- An existing Case object that will be updated 
-                                from the loaded json file (default: {None})
-
     Returns:
-        Case -- Return the updated Case object.
+        Case -- Return a Case object.
     """
-    __data: dict = json.load(open(data_file, "rb"))
-    return load_case(data=__data, case=case)
+    __case = Case()
+    #Load test case
+    with open(file=data_file, mode="r") as f:
+        __case = json.load(fp=f, object_hook=lambda d: SimpleNamespace(**d))
+    return __case
+
+    # __data: dict = json.load(open(data_file, "rb"))
+    # return load_case(data=__data, case=case)
 
 
 def load_case(data: dict, case: Case) -> Case:
